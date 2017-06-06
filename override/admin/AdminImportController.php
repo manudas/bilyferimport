@@ -449,18 +449,7 @@ analizar este
         return true;
     }
 
-    protected static function get_best_path($tgt_width, $tgt_height, $path_infos)
-    {
-        $path_infos = array_reverse($path_infos);
-        $path = '';
-        foreach ($path_infos as $path_info) {
-            list($width, $height, $path) = $path_info;
-            if ($width >= $tgt_width && $height >= $tgt_height) {
-                return $path;
-            }
-        }
-        return $path;
-    }
+ 
 
     public function categoryImport($offset = false, $limit = false, &$crossStepsVariables = false, $validateOnly = false)
     {
@@ -2016,29 +2005,6 @@ analizar este
 
     
 
-    public function utf8EncodeArray($array)
-    {
-        return (is_array($array) ? array_map('utf8_encode', $array) : utf8_encode($array));
-    }
-
-    protected function getNbrColumn($handle, $glue)
-    {
-        if (!is_resource($handle)) {
-            return false;
-        }
-        $tmp = fgetcsv($handle, MAX_LINE_SIZE, $glue);
-        AdminImportController::rewindBomAware($handle);
-        return count($tmp);
-    }
-
-    protected static function usortFiles($a, $b)
-    {
-        if ($a == $b) {
-            return 0;
-        }
-        return ($b < $a) ? 1 : - 1;
-    }
-
     protected function openCsvFile($offset = false)
     {
         $file = $this->excelToCsvFile(Tools::getValue('csv'));
@@ -2398,15 +2364,4 @@ analizar este
         die(json_encode($results));
     }
 
-    public function initModal()
-    {
-        parent::initModal();
-        $modal_content = $this->context->smarty->fetch('controllers/import/modal_import_progress.tpl');
-        $this->modals[] = array(
-             'modal_id' => 'importProgress',
-             'modal_class' => 'modal-md',
-             'modal_title' => $this->trans('Importing...', array(), 'Admin.AdvParameters.Notification'),
-             'modal_content' => $modal_content
-         );
-    }
 }
