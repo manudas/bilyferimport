@@ -278,7 +278,22 @@ class AdminImportController extends AdminImportControllerCore
         return true;
     }
 
- 
+    private function getCombinationAttributes($line) {
+        $result = array(
+            'es' => array(0 => $line[AdminImportController::fistBulletPosition + 0], 1 => $line[AdminImportController::fistBulletPosition + 1], 2 => $line[AdminImportController::fistBulletPosition + 2]),
+            'en' => array(0 => $line[AdminImportController::fistBulletPosition + 3], 1 => $line[AdminImportController::fistBulletPosition + 4], 2 => $line[AdminImportController::fistBulletPosition + 5])
+
+        );
+
+        return $result;
+
+    }
+
+    private function removeCombinationAttributes(&$line){
+        for ($i = 0; $i < 6; $i++){
+            unset($line[AdminImportController::fistBulletPosition + $i]);
+        }
+    }
 
     public function productImport()
     {
@@ -307,7 +322,14 @@ class AdminImportController extends AdminImportControllerCore
             if ($convert) {
                 $line = $this->utf8EncodeArray($line);
             }
+getCombinationAttributes .--> hecho, probar
+removeCombinationAttributes --> hecho, probar
+
             $info = AdminImportController::getMaskedRow($line);
+
+addCombination -> función addCombination -> función bilyferAttributeImport
+
+            
 
             if ($force_ids && isset($info['id']) && (int)$info['id']) {
                 $product = new Product((int)$info['id']);
@@ -1474,10 +1496,10 @@ revisar a partir de aqui
                 $import_type = false;
                 Db::getInstance()->disableCache();
                 switch ((int)Tools::getValue('entity')) {
-Entre eso....no había contrato....ni nada....más lo de ocupa
+
                     case $this->entities[$import_type = $this->l('Products')]:
                         $this->productImport();
-                        $this->bilyferAttributeImport($info hacer info);
+                        // $this->bilyferAttributeImport($info hacer info);
                         $this->clearSmartyCache();
                         break;
 
