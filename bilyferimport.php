@@ -9,7 +9,7 @@ class bilyferimport extends Module {
         $this->version = '0.1';
         $this->author = 'Manuel José Pulgar Anguita';
         $this->need_instance = 0;
-        $this->ps_versions_compliancy = array('min' => '1.7');
+        $this->ps_versions_compliancy = array('min' => '1.5');
     
         parent::__construct();
     
