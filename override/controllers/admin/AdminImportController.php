@@ -278,24 +278,51 @@ class AdminImportController extends AdminImportControllerCore
         return true;
     }
 
-    private function getCombinationAttributes($line) {
-        $result = array(
-            'es' => array(0 => $line[AdminImportController::fistBulletPosition + 0], 1 => $line[AdminImportController::fistBulletPosition + 1], 2 => $line[AdminImportController::fistBulletPosition + 2]),
-            'en' => array(0 => $line[AdminImportController::fistBulletPosition + 3], 1 => $line[AdminImportController::fistBulletPosition + 4], 2 => $line[AdminImportController::fistBulletPosition + 5])
+    private function getCombinationAttributif($line, $iso_lang) {
 
+
+        $lang_offset = $this -> getLangOffset($is_lang);
+
+        $result = array(
+            0 => array( 'group'     => 'color',
+                        'attribute' => $line[AdminImportController::$firstAttributeOffset + $lang_offset + AdminImportController::$colorOffset]),
+            2 => array( 'group'     => 'material',  
+                        'attribute' => $line[AdminImportController::$firstAttributeOffset + $lang_offset + AdminImportController::$materialOffset])
         );
 
         return $result;
 
     }
 
-    private function removeCombinationAttributes(&$line){
-        for ($i = 0; $i < 6; $i++){
-            unset($line[AdminImportController::fistBulletPosition + $i]);
+    private function removeCombinationAttributes(&$line, $iso_lang){
+        $lang_offset = $this -> getLangOffset($is_lang);
+        for ($i = 0; $i < AdminImportController::$totalAttributes; $i++){
+            unset($line[AdminImportController::$firstAttributeOffset + $lang_offset + $i]);
         }
     }
 
-    public function productImport()
+    private function removeOtherLanguageInfo(&$line, $iso_lang) {
+        if (strtolower($is_lang) == 'es' ) {
+            $remove_lang_iso = 'en';
+        }
+        else {
+            $remove_lang_iso = 'es';
+        }
+        $lang_offset = $this -> getLangOffset($is_lang);
+
+        if ($lang_offset != 0) {
+            $remove_index_limit = count($line);
+        }
+        else {
+            $remove_index_limit = $this -> getLangOffset($iso_lang);
+        }
+        for ($i = $lang_offset; $i < $remove_index_limit; $i++) {
+            unset($line[$i]);
+        }
+    }
+
+
+    public function productImport($iso_lang)
     {
         if (!defined('PS_MASS_PRODUCT_CREATION')) {
             define('PS_MASS_PRODUCT_CREATION', true);
@@ -322,14 +349,16 @@ class AdminImportController extends AdminImportControllerCore
             if ($convert) {
                 $line = $this->utf8EncodeArray($line);
             }
-getCombinationAttributes .--> hecho, probar
-removeCombinationAttributes --> hecho, probar
+
 
             $info = AdminImportController::getMaskedRow($line);
-
-addCombination -> función addCombination -> función bilyferAttributeImport
-
+            $combinations = $this -> getCombinationAttributes($info, $iso_lang);
             
+
+            $this -> removeCombinationAttributes($info, $iso_lang);
+            
+            $this -> removeOtherLanguageInfo($info, $iso_lang);
+
 
             if ($force_ids && isset($info['id']) && (int)$info['id']) {
                 $product = new Product((int)$info['id']);
@@ -934,6 +963,9 @@ addCombination -> función addCombination -> función bilyferAttributeImport
                     }
                 }
             }
+            foreach ($combinations as $combination) {
+                $result = $this -> bilyferAttributeImport($combination, $id_lang);
+            }
         }
         $this->closeCsvFile($handle);
         Module::processDeferedFuncCall();
@@ -986,7 +1018,7 @@ addCombination -> función addCombination -> función bilyferAttributeImport
         } elseif (!empty($infos) || $infos == '0') { // ($infos == '0') => if you want to disable a product by using "0" in active because empty('0') return true
                 $entity->{$key} = isset(self::$validators[$key]) ? call_user_func(self::$validators[$key], $infos) : $infos;
         }
-
+        
         return true;
     }
 
@@ -1024,454 +1056,426 @@ addCombination -> función addCombination -> función bilyferAttributeImport
         }
     }
 
-    public function bilyferAttributeImport($info)
+    public function bilyferAttributeImport($info, $id_lang)
     {
 
-
-        este método hay que adaptarlo
-
-        
         $default_language = Configuration::get('PS_LANG_DEFAULT');
+        $id_lang = Language::getIdByIso($id_lang);
+        if (!Validate::isUnsignedId($id_lang)) {
+            $id_lang = $default_language_id;
+        }
 
         $groups = array();
-        foreach (AttributeGroup::getAttributesGroups($default_language) as $group) {
+        foreach (AttributeGroup::getAttributesGroups($id_lang) as $group) {
             $groups[$group['name']] = (int)$group['id_attribute_group'];
         }
 
         $attributes = array();
-        foreach (Attribute::getAttributes($default_language) as $attribute) {
+        foreach (Attribute::getAttributes($id_lang) as $attribute) {
             $attributes[$attribute['attribute_group'].'_'.$attribute['name']] = (int)$attribute['id_attribute'];
         }
 
-// aqui antes había un for para cada  una de las lineas de combinaciones, que ahora deben incluirse en info       
-            // $info = AdminImportController::getMaskedRow($line);
-            se supone q la info se mete por $info
+        $info = array_map('trim', $info);
 
-            $info = array_map('trim', $info);
+        AdminImportController::setDefaultValues($info);
 
-            AdminImportController::setDefaultValues($info);
+        if (!$shop_is_feature_active) {
+            $info['shop'] = 1;
+        } elseif (!isset($info['shop']) || empty($info['shop'])) {
+            $info['shop'] = implode($this->multiple_value_separator, Shop::getContextListShopID());
+        }
 
-            if (!$shop_is_feature_active) {
-                $info['shop'] = 1;
-            } elseif (!isset($info['shop']) || empty($info['shop'])) {
-                $info['shop'] = implode($this->multiple_value_separator, Shop::getContextListShopID());
-            }
+        // Get shops for each attributes
+        $info['shop'] = explode($this->multiple_value_separator, $info['shop']);
 
-            // Get shops for each attributes
-            $info['shop'] = explode($this->multiple_value_separator, $info['shop']);
-
-            $id_shop_list = array();
-            if (is_array($info['shop']) && count($info['shop'])) {
-                foreach ($info['shop'] as $shop) {
-                    if (!empty($shop) && !is_numeric($shop)) {
-                        $id_shop_list[] = Shop::getIdByName($shop);
-                    } elseif (!empty($shop)) {
-                        $id_shop_list[] = $shop;
-                    }
+        $id_shop_list = array();
+        if (is_array($info['shop']) && count($info['shop'])) {
+            foreach ($info['shop'] as $shop) {
+                if (!empty($shop) && !is_numeric($shop)) {
+                    $id_shop_list[] = Shop::getIdByName($shop);
+                } elseif (!empty($shop)) {
+                    $id_shop_list[] = $shop;
                 }
             }
+        }
 
-            if (isset($info['id_product']) && $info['id_product']) {
-                $product = new Product((int)$info['id_product'], false, $default_language);
-            } elseif (Tools::getValue('match_ref') && isset($info['product_reference']) && $info['product_reference']) {
-                $datas = Db::getInstance()->getRow('
-					SELECT p.`id_product`
-					FROM `'._DB_PREFIX_.'product` p
-					'.Shop::addSqlAssociation('product', 'p').'
-					WHERE p.`reference` = "'.pSQL($info['product_reference']).'"
-				', false);
-                if (isset($datas['id_product']) && $datas['id_product']) {
-                    $product = new Product((int)$datas['id_product'], false, $default_language);
-                }
-            } else {
-                continue;
+        if (isset($info['id_product']) && $info['id_product']) {
+            $product = new Product((int)$info['id_product'], false, $id_lang);
+        } elseif (Tools::getValue('match_ref') && isset($info['product_reference']) && $info['product_reference']) {
+            $datas = Db::getInstance()->getRow('
+                SELECT p.`id_product`
+                FROM `'._DB_PREFIX_.'product` p
+                '.Shop::addSqlAssociation('product', 'p').'
+                WHERE p.`reference` = "'.pSQL($info['product_reference']).'"
+            ', false);
+            if (isset($datas['id_product']) && $datas['id_product']) {
+                $product = new Product((int)$datas['id_product'], false, $id_lang);
             }
+        } else {
+            continue;
+        }
 
-            $id_image = array();
+        $id_image = array();
 
-            //delete existing images if "delete_existing_images" is set to 1
-            if (array_key_exists('delete_existing_images', $info) && $info['delete_existing_images'] && !isset($this->cache_image_deleted[(int)$product->id])) {
-                $product->deleteImages();
-                $this->cache_image_deleted[(int)$product->id] = true;
-            }
+        //delete existing images if "delete_existing_images" is set to 1
+        if (array_key_exists('delete_existing_images', $info) && $info['delete_existing_images'] && !isset($this->cache_image_deleted[(int)$product->id])) {
+            $product->deleteImages();
+            $this->cache_image_deleted[(int)$product->id] = true;
+        }
 
-            if (isset($info['image_url']) && $info['image_url']) {
-                $info['image_url'] = explode($this->multiple_value_separator, $info['image_url']);
+        if (isset($info['image_url']) && $info['image_url']) {
+            $info['image_url'] = explode($this->multiple_value_separator, $info['image_url']);
 
-                if (is_array($info['image_url']) && count($info['image_url'])) {
-                    foreach ($info['image_url'] as $url) {
-                        $url = trim($url);
-                        $product_has_images = (bool)Image::getImages($this->context->language->id, $product->id);
+            if (is_array($info['image_url']) && count($info['image_url'])) {
+                foreach ($info['image_url'] as $url) {
+                    $url = trim($url);
+                    $product_has_images = (bool)Image::getImages($this->context->language->id, $product->id);
 
-                        $image = new Image();
-                        $image->id_product = (int)$product->id;
-                        $image->position = Image::getHighestPosition($product->id) + 1;
-                        $image->cover = (!$product_has_images) ? true : false;
+                    $image = new Image();
+                    $image->id_product = (int)$product->id;
+                    $image->position = Image::getHighestPosition($product->id) + 1;
+                    $image->cover = (!$product_has_images) ? true : false;
 
-                        $field_error = $image->validateFields(UNFRIENDLY_ERROR, true);
-                        $lang_field_error = $image->validateFieldsLang(UNFRIENDLY_ERROR, true);
+                    $field_error = $image->validateFields(UNFRIENDLY_ERROR, true);
+                    $lang_field_error = $image->validateFieldsLang(UNFRIENDLY_ERROR, true);
 
-                        if ($field_error === true && $lang_field_error === true && $image->add()) {
-                            $image->associateTo($id_shop_list);
-                            if (!AdminImportController::copyImg($product->id, $image->id, $url, 'products', !$regenerate)) {
-                                $this->warnings[] = sprintf(Tools::displayError('Error copying image: %s'), $url);
-                                $image->delete();
-                            } else {
-                                $id_image[] = (int)$image->id;
-                            }
+                    if ($field_error === true && $lang_field_error === true && $image->add()) {
+                        $image->associateTo($id_shop_list);
+                        if (!AdminImportController::copyImg($product->id, $image->id, $url, 'products', !$regenerate)) {
+                            $this->warnings[] = sprintf(Tools::displayError('Error copying image: %s'), $url);
+                            $image->delete();
                         } else {
-                            $this->warnings[] = sprintf(
-                                Tools::displayError('%s cannot be saved'),
-                                (isset($image->id_product) ? ' ('.$image->id_product.')' : '')
-                            );
-                            $this->errors[] = ($field_error !== true ? $field_error : '').(isset($lang_field_error) && $lang_field_error !== true ? $lang_field_error : '').mysql_error();
+                            $id_image[] = (int)$image->id;
                         }
-                    }
-                }
-            } elseif (isset($info['image_position']) && $info['image_position']) {
-                $info['image_position'] = explode($this->multiple_value_separator, $info['image_position']);
-
-                if (is_array($info['image_position']) && count($info['image_position'])) {
-                    foreach ($info['image_position'] as $position) {
-                        // choose images from product by position
-                        $images = $product->getImages($default_langua           
-
-
-
-                        if ($images) {
-                            foreach ($images as $row) {
-                                if ($row['position'] == (int)$position) {
-                                    $id_image[] = (int)$row['id_image'];
-                                    break;
-                                }
-                            }
-                        }
-                        if (empty($id_image)) {
-                            $this->warnings[] = sprintf(
-                                Tools::displayError('No image was found for combination with id_product = %s and image position = %s.'),
-                                $product->id,
-                                (int)$position
-                            );
-                        }
+                    } else {
+                        $this->warnings[] = sprintf(
+                            Tools::displayError('%s cannot be saved'),
+                            (isset($image->id_product) ? ' ('.$image->id_product.')' : '')
+                        );
+                        $this->errors[] = ($field_error !== true ? $field_error : '').(isset($lang_field_error) && $lang_field_error !== true ? $lang_field_error : '').mysql_error();
                     }
                 }
             }
+        } elseif (isset($info['image_position']) && $info['image_position']) {
+            $info['image_position'] = explode($this->multiple_value_separator, $info['image_position']);
+
+            if (is_array($info['image_position']) && count($info['image_position'])) {
+                foreach ($info['image_position'] as $position) {
+                    // choose images from product by position
+                    $images = $product->getImages($default_langua           
 
 
 
-
-
-
-
-
-$id_attribute_group = 0;
-            // groups
-            $groups_attributes = array();
-            if (isset($info['group'])) {
-                foreach (explode($this->multiple_value_separator, $info['group']) as $key => $group) {
-                    if (empty($group)) {
-                        continue;
+                    if ($images) {
+                        foreach ($images as $row) {
+                            if ($row['position'] == (int)$position) {
+                                $id_image[] = (int)$row['id_image'];
+                                break;
+                            }
+                        }
                     }
-                    $tab_group = explode(':', $group);
-                    $group = trim($tab_group[0]);
-                    if (!isset($tab_group[1])) {
-                        $type = 'select';
+                    if (empty($id_image)) {
+                        $this->warnings[] = sprintf(
+                            Tools::displayError('No image was found for combination with id_product = %s and image position = %s.'),
+                            $product->id,
+                            (int)$position
+                        );
+                    }
+                }
+            }
+        }
+
+        $id_attribute_group = 0;
+        // groups
+        $groups_attributes = array();
+        if (isset($info['group'])) {
+            foreach (explode($this->multiple_value_separator, $info['group']) as $key => $group) {
+                if (empty($group)) {
+                    continue;
+                }
+                $tab_group = explode(':', $group);
+                $group = trim($tab_group[0]);
+                if (!isset($tab_group[1])) {
+                    $type = 'select';
+                } else {
+                    $type = trim($tab_group[1]);
+                }
+
+                // sets group
+                $groups_attributes[$key]['group'] = $group;
+
+                // if position is filled
+                if (isset($tab_group[2])) {
+                    $position = trim($tab_group[2]);
+                } else {
+                    $position = false;
+                }
+
+                if (!isset($groups[$group])) {
+                    $obj = new AttributeGroup();
+                    $obj->is_color_group = false;
+                    $obj->group_type = pSQL($type);
+                    $obj->name[$id_lang] = $group;
+                    $obj->public_name[$id_lang] = $group;
+                    $obj->position = (!$position) ? AttributeGroup::getHigherPosition() + 1 : $position;
+
+                    if (($field_error = $obj->validateFields(UNFRIENDLY_ERROR, true)) === true &&
+                        ($lang_field_error = $obj->validateFieldsLang(UNFRIENDLY_ERROR, true)) === true) {
+                        $obj->add();
+                        $obj->associateTo($id_shop_list);
+                        $groups[$group] = $obj->id;
                     } else {
-                        $type = trim($tab_group[1]);
+                        $this->errors[] = ($field_error !== true ? $field_error : '').(isset($lang_field_error) && $lang_field_error !== true ? $lang_field_error : '');
                     }
 
-                    // sets group
-                    $groups_attributes[$key]['group'] = $group;
+                    // fills groups attributes
+                    $id_attribute_group = $obj->id;
+                    $groups_attributes[$key]['id'] = $id_attribute_group;
+                } else {
+                    // already exists
 
-                    // if position is filled
-                    if (isset($tab_group[2])) {
-                        $position = trim($tab_group[2]);
-                    } else {
-                        $position = false;
-                    }
-esta parte parece importante a conservar en lo q es el importador: creación de nuevos grupos si no existen
-                    if (!isset($groups[$group])) {
-                        $obj = new AttributeGroup();
-                        $obj->is_color_group = false;
-                        $obj->group_type = pSQL($type);
-                        $obj->name[$default_language] = $group;
-                        $obj->public_name[$default_language] = $group;
-                        $obj->position = (!$position) ? AttributeGroup::getHigherPosition() + 1 : $position;
+                    $id_attribute_group = $groups[$group];
+                    $groups_attributes[$key]['id'] = $id_attribute_group;
+                }
+            }
+        }
+
+        // inits attribute
+        $id_product_attribute = 0;
+        $id_product_attribute_update = false;
+        $attributes_to_add = array();
+
+
+        // for each attribute
+        if (isset($info['attribute'])) {
+            foreach (explode($this->multiple_value_separator, $info['attribute']) as $key => $attribute) {
+                if (empty($attribute)) {
+                    continue;
+                }
+                $tab_attribute = explode(':', $attribute);
+                $attribute = trim($tab_attribute[0]);
+                // if position is filled
+                if (isset($tab_attribute[1])) {
+                    $position = trim($tab_attribute[1]);
+                } else {
+                    $position = false;
+                }
+
+                if (isset($groups_attributes[$key])) {
+                    $group = $groups_attributes[$key]['group'];
+                    if (!isset($attributes[$group.'_'.$attribute]) && count($groups_attributes[$key]) == 2) {
+                        $id_attribute_group = $groups_attributes[$key]['id'];
+                        $obj = new Attribute();
+                        // sets the proper id (corresponding to the right key)
+                        $obj->id_attribute_group = $groups_attributes[$key]['id'];
+                        $obj->name[$id_lang] = str_replace('\n', '', str_replace('\r', '', $attribute));
+                        $obj->position = (!$position && isset($groups[$group])) ? Attribute::getHigherPosition($groups[$group]) + 1 : $position;
 
                         if (($field_error = $obj->validateFields(UNFRIENDLY_ERROR, true)) === true &&
                             ($lang_field_error = $obj->validateFieldsLang(UNFRIENDLY_ERROR, true)) === true) {
                             $obj->add();
                             $obj->associateTo($id_shop_list);
-                            $groups[$group] = $obj->id;
+                            $attributes[$group.'_'.$attribute] = $obj->id;
                         } else {
                             $this->errors[] = ($field_error !== true ? $field_error : '').(isset($lang_field_error) && $lang_field_error !== true ? $lang_field_error : '');
                         }
-
-                        // fills groups attributes
-                        $id_attribute_group = $obj->id;
-                        $groups_attributes[$key]['id'] = $id_attribute_group;
-                    } else {
-                        // already exists
-
-                        $id_attribute_group = $groups[$group];
-                        $groups_attributes[$key]['id'] = $id_attribute_group;
-                    }
-                }
-            }
-
-            // inits attribute
-            $id_product_attribute = 0;
-            $id_product_attribute_update = false;
-            $attributes_to_add = array();
-
-
-segun entiendo (por lo de arriba y por lo que viene a continuación) en info tenemos que pasar la información de la siguiente forma
-info['group'] nombre del grupo separado por comas, no es necesario más
-info['attribute'] = valor del atributo
-
-            // for each attribute
-            if (isset($info['attribute'])) {
-                foreach (explode($this->multiple_value_separator, $info['attribute']) as $key => $attribute) {
-                    if (empty($attribute)) {
-                        continue;
-                    }
-                    $tab_attribute = explode(':', $attribute);
-                    $attribute = trim($tab_attribute[0]);
-                    // if position is filled
-                    if (isset($tab_attribute[1])) {
-                        $position = trim($tab_attribute[1]);
-                    } else {
-                        $position = false;
                     }
 
-                    if (isset($groups_attributes[$key])) {
-                        $group = $groups_attributes[$key]['group'];
-                        if (!isset($attributes[$group.'_'.$attribute]) && count($groups_attributes[$key]) == 2) {
-                            $id_attribute_group = $groups_attributes[$key]['id'];
-                            $obj = new Attribute();
-                            // sets the proper id (corresponding to the right key)
-                            $obj->id_attribute_group = $groups_attributes[$key]['id'];
-                            $obj->name[$default_language] = str_replace('\n', '', str_replace('\r', '', $attribute));
-                            $obj->position = (!$position && isset($groups[$group])) ? Attribute::getHigherPosition($groups[$group]) + 1 : $position;
+                    $info['minimal_quantity'] = isset($info['minimal_quantity']) && $info['minimal_quantity'] ? (int)$info['minimal_quantity'] : 1;
 
-                            if (($field_error = $obj->validateFields(UNFRIENDLY_ERROR, true)) === true &&
-                                ($lang_field_error = $obj->validateFieldsLang(UNFRIENDLY_ERROR, true)) === true) {
-                                $obj->add();
-                                $obj->associateTo($id_shop_list);
-                                $attributes[$group.'_'.$attribute] = $obj->id;
-                            } else {
-                                $this->errors[] = ($field_error !== true ? $field_error : '').(isset($lang_field_error) && $lang_field_error !== true ? $lang_field_error : '');
-                            }
-                        }
+                    $info['wholesale_price'] = str_replace(',', '.', $info['wholesale_price']);
+                    $info['price'] = str_replace(',', '.', $info['price']);
+                    $info['ecotax'] = str_replace(',', '.', $info['ecotax']);
+                    $info['weight'] = str_replace(',', '.', $info['weight']);
+                    $info['available_date'] = Validate::isDate($info['available_date']) ? $info['available_date'] : null;
 
-                        $info['minimal_quantity'] = isset($info['minimal_quantity']) && $info['minimal_quantity'] ? (int)$info['minimal_quantity'] : 1;
+                    if (!Validate::isEan13($info['ean13'])) {
+                        $this->warnings[] = sprintf(Tools::displayError('EAN13 "%1s" has incorrect value for product with id %2d.'), $info['ean13'], $product->id);
+                        $info['ean13'] = '';
+                    }
 
-                        $info['wholesale_price'] = str_replace(',', '.', $info['wholesale_price']);
-                        $info['price'] = str_replace(',', '.', $info['price']);
-                        $info['ecotax'] = str_replace(',', '.', $info['ecotax']);
-                        $info['weight'] = str_replace(',', '.', $info['weight']);
-                        $info['available_date'] = Validate::isDate($info['available_date']) ? $info['available_date'] : null;
+                    if ($info['default_on']) {
+                        $product->deleteDefaultAttributes();
+                    }
 
-                        if (!Validate::isEan13($info['ean13'])) {
-                            $this->warnings[] = sprintf(Tools::displayError('EAN13 "%1s" has incorrect value for product with id %2d.'), $info['ean13'], $product->id);
-                            $info['ean13'] = '';
-                        }
+                    // if a reference is specified for this product, get the associate id_product_attribute to UPDATE
+                    if (isset($info['reference']) && !empty($info['reference'])) {
+                        $id_product_attribute = Combination::getIdByReference($product->id, strval($info['reference']));
 
-                        if ($info['default_on']) {
-                            $product->deleteDefaultAttributes();
-                        }
-
-                        // if a reference is specified for this product, get the associate id_product_attribute to UPDATE
-                        if (isset($info['reference']) && !empty($info['reference'])) {
-                            $id_product_attribute = Combination::getIdByReference($product->id, strval($info['reference']));
-
-                            // updates the attribute
-                            if ($id_product_attribute) {
-                                // gets all the combinations of this product
-                                $attribute_combinations = $product->getAttributeCombinations($default_language);
-                                foreach ($attribute_combinations as $attribute_combination) {
-                                    if ($id_product_attribute && in_array($id_product_attribute, $attribute_combination)) {
-                                        $product->updateAttribute(
-                                            $id_product_attribute,
-                                            (float)$info['wholesale_price'],
-                                            (float)$info['price'],
-                                            (float)$info['weight'],
-                                            0,
-                                            (Configuration::get('PS_USE_ECOTAX') ? (float)$info['ecotax'] : 0),
-                                            $id_image,
-                                            strval($info['reference']),
-                                            strval($info['ean13']),
-                                            (int)$info['default_on'],
-                                            0,
-                                            strval($info['upc']),
-                                            (int)$info['minimal_quantity'],
-                                            $info['available_date'],
-                                            null,
-                                            $id_shop_list
-                                        );
-                                        $id_product_attribute_update = true;
-                                        if (isset($info['supplier_reference']) && !empty($info['supplier_reference'])) {
-                                            $product->addSupplierReference($product->id_supplier, $id_product_attribute, $info['supplier_reference']);
-                                        }
+                        // updates the attribute
+                        if ($id_product_attribute) {
+                            // gets all the combinations of this product
+                            $attribute_combinations = $product->getAttributeCombinations($id_lang);
+                            foreach ($attribute_combinations as $attribute_combination) {
+                                if ($id_product_attribute && in_array($id_product_attribute, $attribute_combination)) {
+                                    $product->updateAttribute(
+                                        $id_product_attribute,
+                                        (float)$info['wholesale_price'],
+                                        (float)$info['price'],
+                                        (float)$info['weight'],
+                                        0,
+                                        (Configuration::get('PS_USE_ECOTAX') ? (float)$info['ecotax'] : 0),
+                                        $id_image,
+                                        strval($info['reference']),
+                                        strval($info['ean13']),
+                                        (int)$info['default_on'],
+                                        0,
+                                        strval($info['upc']),
+                                        (int)$info['minimal_quantity'],
+                                        $info['available_date'],
+                                        null,
+                                        $id_shop_list
+                                    );
+                                    $id_product_attribute_update = true;
+                                    if (isset($info['supplier_reference']) && !empty($info['supplier_reference'])) {
+                                        $product->addSupplierReference($product->id_supplier, $id_product_attribute, $info['supplier_reference']);
                                     }
                                 }
                             }
                         }
-
-                        // if no attribute reference is specified, creates a new one
-                        if (!$id_product_attribute) {
-                            $id_product_attribute = $product->addCombinationEntity(
-                                (float)$info['wholesale_price'],
-                                (float)$info['price'],
-                                (float)$info['weight'],
-                                0,
-                                (Configuration::get('PS_USE_ECOTAX') ? (float)$info['ecotax'] : 0),
-                                (int)$info['quantity'],
-                                $id_image,
-                                strval($info['reference']),
-                                0,
-                                strval($info['ean13']),
-                                (int)$info['default_on'],
-                                0,
-                                strval($info['upc']),
-                                (int)$info['minimal_quantity'],
-                                $id_shop_list,
-                                $info['available_date']
-                            );
-
-                            if (isset($info['supplier_reference']) && !empty($info['supplier_reference'])) {
-                                $product->addSupplierReference($product->id_supplier, $id_product_attribute, $info['supplier_reference']);
-                            }
-                        }
-
-                        // fills our attributes array, in order to add the attributes to the product_attribute afterwards
-                        if (isset($attributes[$group.'_'.$attribute])) {
-                            $attributes_to_add[] = (int)$attributes[$group.'_'.$attribute];
-                        }
-
-                        // after insertion, we clean attribute position and group attribute position
-                        $obj = new Attribute();
-                        $obj->cleanPositions((int)$id_attribute_group, false);
-                        AttributeGroup::cleanPositions();
                     }
+
+                    // if no attribute reference is specified, creates a new one
+                    if (!$id_product_attribute) {
+                        $id_product_attribute = $product->addCombinationEntity(
+                            (float)$info['wholesale_price'],
+                            (float)$info['price'],
+                            (float)$info['weight'],
+                            0,
+                            (Configuration::get('PS_USE_ECOTAX') ? (float)$info['ecotax'] : 0),
+                            (int)$info['quantity'],
+                            $id_image,
+                            strval($info['reference']),
+                            0,
+                            strval($info['ean13']),
+                            (int)$info['default_on'],
+                            0,
+                            strval($info['upc']),
+                            (int)$info['minimal_quantity'],
+                            $id_shop_list,
+                            $info['available_date']
+                        );
+
+                        if (isset($info['supplier_reference']) && !empty($info['supplier_reference'])) {
+                            $product->addSupplierReference($product->id_supplier, $id_product_attribute, $info['supplier_reference']);
+                        }
+                    }
+
+                    // fills our attributes array, in order to add the attributes to the product_attribute afterwards
+                    if (isset($attributes[$group.'_'.$attribute])) {
+                        $attributes_to_add[] = (int)$attributes[$group.'_'.$attribute];
+                    }
+
+                    // after insertion, we clean attribute position and group attribute position
+                    $obj = new Attribute();
+                    $obj->cleanPositions((int)$id_attribute_group, false);
+                    AttributeGroup::cleanPositions();
+                }
+            }
+        }
+
+
+        $product->checkDefaultAttributes();
+        if (!$product->cache_default_attribute) {
+            Product::updateDefaultAttribute($product->id);
+        }
+        if ($id_product_attribute) {
+            // now adds the attributes in the attribute_combination table
+            if ($id_product_attribute_update) {
+                Db::getInstance()->execute('
+                    DELETE FROM '._DB_PREFIX_.'product_attribute_combination
+                    WHERE id_product_attribute = '.(int)$id_product_attribute);
+            }
+
+            foreach ($attributes_to_add as $attribute_to_add) {
+                Db::getInstance()->execute('
+                    INSERT IGNORE INTO '._DB_PREFIX_.'product_attribute_combination (id_attribute, id_product_attribute)
+                    VALUES ('.(int)$attribute_to_add.','.(int)$id_product_attribute.')', false);
+            }
+
+            // set advanced stock managment
+            if (isset($info['advanced_stock_management'])) {
+                if ($info['advanced_stock_management'] != 1 && $info['advanced_stock_management'] != 0) {
+                    $this->warnings[] = sprintf(Tools::displayError('Advanced stock management has incorrect value. Not set for product with id %d.'), $product->id);
+                } elseif (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT') && $info['advanced_stock_management'] == 1) {
+                    $this->warnings[] = sprintf(Tools::displayError('Advanced stock management is not enabled, cannot enable on product with id %d.'), $product->id);
+                } else {
+                    $product->setAdvancedStockManagement($info['advanced_stock_management']);
+                }
+                // automaticly disable depends on stock, if a_s_m set to disabled
+                if (StockAvailable::dependsOnStock($product->id) == 1 && $info['advanced_stock_management'] == 0) {
+                    StockAvailable::setProductDependsOnStock($product->id, 0, null, $id_product_attribute);
                 }
             }
 
-
-
-
-
-revisar a partir de aqui
-            $product->checkDefaultAttributes();
-            if (!$product->cache_default_attribute) {
-                Product::updateDefaultAttribute($product->id);
-            }
-            if ($id_product_attribute) {
-                // now adds the attributes in the attribute_combination table
-                if ($id_product_attribute_update) {
-                    Db::getInstance()->execute('
-						DELETE FROM '._DB_PREFIX_.'product_attribute_combination
-						WHERE id_product_attribute = '.(int)$id_product_attribute);
-                }
-
-                foreach ($attributes_to_add as $attribute_to_add) {
-                    Db::getInstance()->execute('
-						INSERT IGNORE INTO '._DB_PREFIX_.'product_attribute_combination (id_attribute, id_product_attribute)
-						VALUES ('.(int)$attribute_to_add.','.(int)$id_product_attribute.')', false);
-                }
-
-                // set advanced stock managment
-                if (isset($info['advanced_stock_management'])) {
-                    if ($info['advanced_stock_management'] != 1 && $info['advanced_stock_management'] != 0) {
-                        $this->warnings[] = sprintf(Tools::displayError('Advanced stock management has incorrect value. Not set for product with id %d.'), $product->id);
-                    } elseif (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT') && $info['advanced_stock_management'] == 1) {
-                        $this->warnings[] = sprintf(Tools::displayError('Advanced stock management is not enabled, cannot enable on product with id %d.'), $product->id);
-                    } else {
-                        $product->setAdvancedStockManagement($info['advanced_stock_management']);
-                    }
-                    // automaticly disable depends on stock, if a_s_m set to disabled
-                    if (StockAvailable::dependsOnStock($product->id) == 1 && $info['advanced_stock_management'] == 0) {
-                        StockAvailable::setProductDependsOnStock($product->id, 0, null, $id_product_attribute);
-                    }
-                }
-
-                // Check if warehouse exists
-                if (isset($info['warehouse']) && $info['warehouse']) {
-                    if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT')) {
-                        $this->warnings[] = sprintf(Tools::displayError('Advanced stock management is not enabled, warehouse is not set on product with id %d.'), $product->id);
-                    } else {
-                        if (Warehouse::exists($info['warehouse'])) {
-                            $warehouse_location_entity = new WarehouseProductLocation();
-                            $warehouse_location_entity->id_product = $product->id;
-                            $warehouse_location_entity->id_product_attribute = $id_product_attribute;
-                            $warehouse_location_entity->id_warehouse = $info['warehouse'];
-                            if (WarehouseProductLocation::getProductLocation($product->id, $id_product_attribute, $info['warehouse']) !== false) {
-                                $warehouse_location_entity->update();
-                            } else {
-                                $warehouse_location_entity->save();
-                            }
-                            StockAvailable::synchronize($product->id);
+            // Check if warehouse exists
+            if (isset($info['warehouse']) && $info['warehouse']) {
+                if (!Configuration::get('PS_ADVANCED_STOCK_MANAGEMENT')) {
+                    $this->warnings[] = sprintf(Tools::displayError('Advanced stock management is not enabled, warehouse is not set on product with id %d.'), $product->id);
+                } else {
+                    if (Warehouse::exists($info['warehouse'])) {
+                        $warehouse_location_entity = new WarehouseProductLocation();
+                        $warehouse_location_entity->id_product = $product->id;
+                        $warehouse_location_entity->id_product_attribute = $id_product_attribute;
+                        $warehouse_location_entity->id_warehouse = $info['warehouse'];
+                        if (WarehouseProductLocation::getProductLocation($product->id, $id_product_attribute, $info['warehouse']) !== false) {
+                            $warehouse_location_entity->update();
                         } else {
-                            $this->warnings[] = sprintf(Tools::displayError('Warehouse did not exist, cannot set on product %1$s.'), $product->name[$default_language]);
+                            $warehouse_location_entity->save();
                         }
-                    }
-                }
-
-                // stock available
-                if (isset($info['depends_on_stock'])) {
-                    if ($info['depends_on_stock'] != 0 && $info['depends_on_stock'] != 1) {
-                        $this->warnings[] = sprintf(Tools::displayError('Incorrect value for depends on stock for product %1$s '), $product->name[$default_language]);
-                    } elseif ((!$info['advanced_stock_management'] || $info['advanced_stock_management'] == 0) && $info['depends_on_stock'] == 1) {
-                        $this->warnings[] = sprintf(Tools::displayError('Advanced stock management is not enabled, cannot set depends on stock %1$s '), $product->name[$default_language]);
+                        StockAvailable::synchronize($product->id);
                     } else {
-                        StockAvailable::setProductDependsOnStock($product->id, $info['depends_on_stock'], null, $id_product_attribute);
-                    }
-
-                    // This code allows us to set qty and disable depends on stock
-                    if (isset($info['quantity']) && (int)$info['quantity']) {
-                        // if depends on stock and quantity, add quantity to stock
-                        if ($info['depends_on_stock'] == 1) {
-                            $stock_manager = StockManagerFactory::getManager();
-                            $price = str_replace(',', '.', $info['wholesale_price']);
-                            if ($price == 0) {
-                                $price = 0.000001;
-                            }
-                            $price = round(floatval($price), 6);
-                            $warehouse = new Warehouse($info['warehouse']);
-                            if ($stock_manager->addProduct((int)$product->id, $id_product_attribute, $warehouse, (int)$info['quantity'], 1, $price, true)) {
-                                StockAvailable::synchronize((int)$product->id);
-                            }
-                        } else {
-                            if ($shop_is_feature_active) {
-                                foreach ($id_shop_list as $shop) {
-                                    StockAvailable::setQuantity((int)$product->id, $id_product_attribute, (int)$info['quantity'], (int)$shop);
-                                }
-                            } else {
-                                StockAvailable::setQuantity((int)$product->id, $id_product_attribute, (int)$info['quantity'], $this->context->shop->id);
-                            }
-                        }
-                    }
-                }
-                // if not depends_on_stock set, use normal qty
-                else {
-                    if ($shop_is_feature_active) {
-                        foreach ($id_shop_list as $shop) {
-                            StockAvailable::setQuantity((int)$product->id, $id_product_attribute, (int)$info['quantity'], (int)$shop);
-                        }
-                    } else {
-                        StockAvailable::setQuantity((int)$product->id, $id_product_attribute, (int)$info['quantity'], $this->context->shop->id);
+                        $this->warnings[] = sprintf(Tools::displayError('Warehouse did not exist, cannot set on product %1$s.'), $product->name[$id_lang]);
                     }
                 }
             }
 
+            // stock available
+            if (isset($info['depends_on_stock'])) {
+                if ($info['depends_on_stock'] != 0 && $info['depends_on_stock'] != 1) {
+                    $this->warnings[] = sprintf(Tools::displayError('Incorrect value for depends on stock for product %1$s '), $product->name[$id_lang]);
+                } elseif ((!$info['advanced_stock_management'] || $info['advanced_stock_management'] == 0) && $info['depends_on_stock'] == 1) {
+                    $this->warnings[] = sprintf(Tools::displayError('Advanced stock management is not enabled, cannot set depends on stock %1$s '), $product->name[$id_lang]);
+                } else {
+                    StockAvailable::setProductDependsOnStock($product->id, $info['depends_on_stock'], null, $id_product_attribute);
+                }
 
-
-
-
-
-
-
-
+                // This code allows us to set qty and disable depends on stock
+                if (isset($info['quantity']) && (int)$info['quantity']) {
+                    // if depends on stock and quantity, add quantity to stock
+                    if ($info['depends_on_stock'] == 1) {
+                        $stock_manager = StockManagerFactory::getManager();
+                        $price = str_replace(',', '.', $info['wholesale_price']);
+                        if ($price == 0) {
+                            $price = 0.000001;
+                        }
+                        $price = round(floatval($price), 6);
+                        $warehouse = new Warehouse($info['warehouse']);
+                        if ($stock_manager->addProduct((int)$product->id, $id_product_attribute, $warehouse, (int)$info['quantity'], 1, $price, true)) {
+                            StockAvailable::synchronize((int)$product->id);
+                        }
+                    } else {
+                        if ($shop_is_feature_active) {
+                            foreach ($id_shop_list as $shop) {
+                                StockAvailable::setQuantity((int)$product->id, $id_product_attribute, (int)$info['quantity'], (int)$shop);
+                            }
+                        } else {
+                            StockAvailable::setQuantity((int)$product->id, $id_product_attribute, (int)$info['quantity'], $this->context->shop->id);
+                        }
+                    }
+                }
+            }
+            // if not depends_on_stock set, use normal qty
+            else {
+                if ($shop_is_feature_active) {
+                    foreach ($id_shop_list as $shop) {
+                        StockAvailable::setQuantity((int)$product->id, $id_product_attribute, (int)$info['quantity'], (int)$shop);
+                    }
+                } else {
+                    StockAvailable::setQuantity((int)$product->id, $id_product_attribute, (int)$info['quantity'], $this->context->shop->id);
+                }
+            }
+        }
 
     }
 
