@@ -1112,7 +1112,7 @@ class AdminImportController extends AdminImportControllerCore
                 $product = new Product((int)$datas['id_product'], false, $id_lang);
             }
         } else {
-            continue;
+            // continue;
         }
 
         $id_image = array();
@@ -1162,9 +1162,7 @@ class AdminImportController extends AdminImportControllerCore
             if (is_array($info['image_position']) && count($info['image_position'])) {
                 foreach ($info['image_position'] as $position) {
                     // choose images from product by position
-                    $images = $product->getImages($default_langua           
-
-
+                    $images = $product->getImages($default_language);
 
                     if ($images) {
                         foreach ($images as $row) {
