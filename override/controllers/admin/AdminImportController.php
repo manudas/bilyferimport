@@ -278,16 +278,33 @@ class AdminImportController extends AdminImportControllerCore
         return true;
     }
 
-    private function getCombinationAttributif($line, $iso_lang) {
+    private function getLangOffset($iso_lang) {
+        $offset = 0;
+        if (!empty(AdminImportController::$csvOffsets[$iso_lang])) { // offset relativo con respecto a los common attributes
+            $offset += AdminImportController::$csvOffsets[$iso_lang];
+        }
+        return $offset;
+    }
+
+    private function getCommonLengthAttr() {
+        return AdminImportController::$commonAttrLength;
+    }
+
+    private function getRelativeAttrOffset($attr) { // relativo con respecto a su lengua
+        return AdminImportController::$csvOffsets['lang'][$attr];
+    }
+
+    private function getCombinationAttributes($line, $iso_lang) {
 
 
-        $lang_offset = $this -> getLangOffset($is_lang);
+        $lang_offset = $this -> getLangOffset($iso_lang);
+        $common_lenght_att = $this -> getCommonLengthAttr();
 
         $result = array(
             0 => array( 'group'     => 'color',
-                        'attribute' => $line[AdminImportController::$firstAttributeOffset + $lang_offset + AdminImportController::$colorOffset]),
+                        'attribute' => $line[$common_lenght_att + $lang_offset +  getRelativeAttrOffset('color')]),
             2 => array( 'group'     => 'material',  
-                        'attribute' => $line[AdminImportController::$firstAttributeOffset + $lang_offset + AdminImportController::$materialOffset])
+                        'attribute' => $line[$common_lenght_att + $lang_offset +  getRelativeAttrOffset('material')])
         );
 
         return $result;
@@ -321,6 +338,15 @@ class AdminImportController extends AdminImportControllerCore
         }
     }
 
+    protected function receiveTab()
+    {
+        $type_value = Tools::getValue('type_value') ? Tools::getValue('type_value') : array();
+        foreach ($type_value as $nb => $type) {
+            if ($type != 'no') {
+                self::$column_mask[$type] = $nb;
+            }
+        }
+    }
 
     public function productImport($iso_lang)
     {
