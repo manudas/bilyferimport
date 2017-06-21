@@ -4,6 +4,16 @@
 class AdminImportController extends AdminImportControllerCore
 {
 
+    private static $csvOffsets = array(
+        'combinationAttr' => array(
+            'color' => 1,
+            'material' => 2
+        ),
+    );
+
+    private static $totalAttributes = 2; // color y material
+
+    private static $commonAttrLength = 6;
 
     public function __construct()
     {
@@ -286,46 +296,77 @@ class AdminImportController extends AdminImportControllerCore
         return $offset;
     }
 
-    private function getCommonLengthAttr() {
+    private function getCommonLengthAttr() { // las columnas comunes a todas las lenguas (que no sean combinaciones)
+        /* las columnas comunes a todas las lenguas (que no sean combinaciones) son 
+         * 1 - ref
+         * 2 - precio al por mayor
+         * 3 - pvp
+         * 4 - stock
+         * 5 - categoria
+         * 6 - imagen
+         *
+         * Devolvemos una propiedad estática por si esto cambia en el futuro
+         *
+         */
         return AdminImportController::$commonAttrLength;
     }
 
-    private function getRelativeAttrOffset($attr) { // relativo con respecto a su lengua
-        return AdminImportController::$csvOffsets['lang'][$attr];
+    private function getAttrOffset($attr) { // relativo con respecto a su lengua
+        return $this -> getCommonLengthAttr() + AdminImportController::$csvOffsets['combinationAttr'][$attr];
     }
 
     private function getCombinationAttributes($line, $iso_lang) {
 
 
-        $lang_offset = $this -> getLangOffset($iso_lang);
+        // $lang_offset = $this -> getLangOffset($iso_lang);
         $common_lenght_att = $this -> getCommonLengthAttr();
+/*
+        $result = array(
+            0 => array( 'group'     => 'color',
+                        'attribute' => $line[$common_lenght_att + $lang_offset +  getAttrOffset('color')]),
+            2 => array( 'group'     => 'material',  
+                        'attribute' => $line[$common_lenght_att + $lang_offset +  getAttrOffset('material')])
+        );
+*/
 
         $result = array(
             0 => array( 'group'     => 'color',
-                        'attribute' => $line[$common_lenght_att + $lang_offset +  getRelativeAttrOffset('color')]),
+                        'attribute' => $line[$common_lenght_att + $this -> getAttrOffset('color')]),
             2 => array( 'group'     => 'material',  
-                        'attribute' => $line[$common_lenght_att + $lang_offset +  getRelativeAttrOffset('material')])
+                        'attribute' => $line[$common_lenght_att + $this -> getAttrOffset('material')])
         );
 
         return $result;
 
     }
 
+    private function getFirstCombinationAttOffset(){
+        $common_lenght_att = $this -> getCommonLengthAttr();
+        $colorOffset = $common_lenght_att + $this -> getAttrOffset('color');
+        $materialOffset = $common_lenght_att + $this -> getAttrOffset('material');
+        if ($colorOffset < $materialOffset) {
+            return $colorOffset;
+        }
+        else {
+            return $materialOffset;
+        }
+    }
+
     private function removeCombinationAttributes(&$line, $iso_lang){
-        $lang_offset = $this -> getLangOffset($is_lang);
+        $firstCombinationAttrOffset = $this -> getFirstCombinationAttOffset();
         for ($i = 0; $i < AdminImportController::$totalAttributes; $i++){
-            unset($line[AdminImportController::$firstAttributeOffset + $lang_offset + $i]);
+            unset($line[$firstCombinationAttrOffset + $i]);
         }
     }
 
     private function removeOtherLanguageInfo(&$line, $iso_lang) {
-        if (strtolower($is_lang) == 'es' ) {
+        if (strtolower($iso_lang) == 'es' ) {
             $remove_lang_iso = 'en';
         }
         else {
             $remove_lang_iso = 'es';
         }
-        $lang_offset = $this -> getLangOffset($is_lang);
+        $lang_offset = $this -> getLangOffset($iso_lang);
 
         if ($lang_offset != 0) {
             $remove_index_limit = count($line);
@@ -348,7 +389,7 @@ class AdminImportController extends AdminImportControllerCore
         }
     }
 
-    public function productImport($iso_lang)
+    public function productImport()
     {
         if (!defined('PS_MASS_PRODUCT_CREATION')) {
             define('PS_MASS_PRODUCT_CREATION', true);
@@ -357,6 +398,7 @@ class AdminImportController extends AdminImportControllerCore
         $this->receiveTab();
         $handle = $this->openCsvFile();
         $default_language_id = (int)Configuration::get('PS_LANG_DEFAULT');
+        $iso_lang = Tools::getValue('iso_lang');
         $id_lang = Language::getIdByIso(Tools::getValue('iso_lang'));
         if (!Validate::isUnsignedId($id_lang)) {
             $id_lang = $default_language_id;
@@ -1086,7 +1128,7 @@ class AdminImportController extends AdminImportControllerCore
     {
 
         $default_language = Configuration::get('PS_LANG_DEFAULT');
-        $id_lang = Language::getIdByIso($id_lang);
+        // $id_lang = Language::getIdByIso($id_lang);
         if (!Validate::isUnsignedId($id_lang)) {
             $id_lang = $default_language_id;
         }
