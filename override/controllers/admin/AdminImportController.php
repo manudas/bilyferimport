@@ -1180,6 +1180,7 @@ class AdminImportController extends AdminImportControllerCore
                 $product = new Product((int)$datas['id_product'], false, $id_lang);
             }
         } else {
+            $product = new Product(); // added by manu
             // continue;
         }
 
