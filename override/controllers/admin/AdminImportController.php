@@ -42,8 +42,18 @@ class AdminImportController extends AdminImportControllerCore
                     'material' => array('label' => $this->l('Material')),
 
                     'name' => array('label' => $this->l('Name')),
+// short description should have the same content as name
+                    'bullet1' => array('label' => $this->l('Bullet1 es')),
+                    'bullet2' => array('label' => $this->l('Bullet2 es')),
+                    'bullet3' => array('label' => $this->l('Bullet3 es')),
+
+                    'tags' => array('label' => $this->l('Tags (x,y,z...)')),
+
+                    
                     'description_short' => array('label' => $this->l('Short description')),
-                    'description' => array('label' => $this->l('Description')),
+
+                    // 'description' => array('label' => $this->l('Description')),
+
                     'tags' => array('label' => $this->l('Tags (x,y,z...)')),
                     'meta_title' => array('label' => $this->l('Meta title')),
                     'meta_keywords' => array('label' => $this->l('Meta keywords')),
