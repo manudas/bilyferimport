@@ -4,21 +4,23 @@
 class AdminImportController extends AdminImportControllerCore
 {
 
-    private static $csvOffsets = array(
-        'combinationAttr' => array(
-            'color' => 1,
-            'material' => 2
-        ),
-    );
+    private static function csvOffsets(){
+        return array(
+            'combinationAttr' => array(
+                'color' => 1,
+                'material' => 2
+            ),
+        );
+    }
 
     private static $totalAttributes = 2; // color y material
 
     private static $commonAttrLength = 6;
 
+
     public function __construct()
     {
         parent::__construct();
-
         switch ((int)Tools::getValue('entity')) {
            
             case $this->entities[$this->l('Products')]:
@@ -26,39 +28,20 @@ class AdminImportController extends AdminImportControllerCore
                     'AdminImportController',
                     'split'
                 );
-
                 $this->available_fields = array(
                     'no' => array('label' => $this->l('Ignore this column')),
-                    'id' => array('label' => $this->l('ID')),
-                    'active' => array('label' => $this->l('Active (0/1)')),
-                    'name' => array('label' => $this->l('Name')),
-                    'category' => array('label' => $this->l('Categories (x,y,z...)')),
-                    // 'price_tex' => array('label' => $this->l('Price tax excluded')),
-                    'price_tin' => array('label' => $this->l('Price tax included')),
-                    // 'id_tax_rules_group' => array('label' => $this->l('Tax rules ID')),
-                    'wholesale_price' => array('label' => $this->l('Wholesale price')),
-                    'on_sale' => array('label' => $this->l('On sale (0/1)')),
-                    'reduction_price' => array('label' => $this->l('Discount amount')),
-                    'reduction_percent' => array('label' => $this->l('Discount percent')),
-                    'reduction_from' => array('label' => $this->l('Discount from (yyyy-mm-dd)')),
-                    'reduction_to' => array('label' => $this->l('Discount to (yyyy-mm-dd)')),
                     'reference' => array('label' => $this->l('Reference #')),
-                    // 'supplier_reference' => array('label' => $this->l('Supplier reference #')),
-                    // 'supplier' => array('label' => $this->l('Supplier')),
-                    // 'manufacturer' => array('label' => $this->l('Manufacturer')),
-                    'ean13' => array('label' => $this->l('EAN13')),
-                    // 'upc' => array('label' => $this->l('UPC')),
-                    // 'ecotax' => array('label' => $this->l('Ecotax')),
-                    // 'width' => array('label' => $this->l('Width')),
-                    // 'height' => array('label' => $this->l('Height')),
-                    // 'depth' => array('label' => $this->l('Depth')),
-                    // 'weight' => array('label' => $this->l('Weight')),
+                    'wholesale_price' => array('label' => $this->l('Wholesale price')),
+                    'price_tin' => array('label' => $this->l('Price tax included')),
                     'quantity' => array('label' => $this->l('Quantity')),
-                    // 'minimal_quantity' => array('label' => $this->l('Minimal quantity')),
-                    // 'visibility' => array('label' => $this->l('Visibility')),
-                    'additional_shipping_cost' => array('label' => $this->l('Additional shipping cost')),
-                    'unity' => array('label' => $this->l('Unit for the unit price')),
-                    'unit_price' => array('label' => $this->l('Unit price')),
+                    'category' => array('label' => $this->l('Categories (x,y,z...)')),
+                    'image' => array('label' => $this->l('Image URLs (x,y,z...)')),
+                    'reduction_percent' => array('label' => $this->l('Discount percent')),
+                    
+                    'color' => array('label' => $this->l('Color')),
+                    'material' => array('label' => $this->l('Material')),
+
+                    'name' => array('label' => $this->l('Name')),
                     'description_short' => array('label' => $this->l('Short description')),
                     'description' => array('label' => $this->l('Description')),
                     'tags' => array('label' => $this->l('Tags (x,y,z...)')),
@@ -66,41 +49,14 @@ class AdminImportController extends AdminImportControllerCore
                     'meta_keywords' => array('label' => $this->l('Meta keywords')),
                     'meta_description' => array('label' => $this->l('Meta description')),
                     'link_rewrite' => array('label' => $this->l('URL rewritten')),
-                    // 'available_now' => array('label' => $this->l('Text when in stock')),
-                    // 'available_later' => array('label' => $this->l('Text when backorder allowed')),
-                    // 'available_for_order' => array('label' => $this->l('Available for order (0 = No, 1 = Yes)')),
-                    // 'available_date' => array('label' => $this->l('Product availability date')),
-                    // 'date_add' => array('label' => $this->l('Product creation date')),
-                    'show_price' => array('label' => $this->l('Show price (0 = No, 1 = Yes)')),
-                    'image' => array('label' => $this->l('Image URLs (x,y,z...)')),
-                    'delete_existing_images' => array(
-                        'label' => $this->l('Delete existing images (0 = No, 1 = Yes)')
-                    ),
                     'features' => array('label' => $this->l('Feature (Name:Value:Position:Customized)')),
-                    // 'online_only' => array('label' => $this->l('Available online only (0 = No, 1 = Yes)')),
-                    // 'condition' => array('label' => $this->l('Condition')),
-                    'customizable' => array('label' => $this->l('Customizable (0 = No, 1 = Yes)')),
-                    // 'uploadable_files' => array('label' => $this->l('Uploadable files (0 = No, 1 = Yes)')),
-                    // 'text_fields' => array('label' => $this->l('Text fields (0 = No, 1 = Yes)')),
-                    'out_of_stock' => array('label' => $this->l('Action when out of stock')),
+                    
                     'shop' => array(
                         'label' => $this->l('ID / Name of shop'),
                         'help' => $this->l('Ignore this field if you don\'t use the Multistore tool. If you leave this field empty, the default shop will be used.'),
                     ),
-                    'advanced_stock_management' => array(
-                        'label' => $this->l('Advanced Stock Management'),
-                        'help' => $this->l('Enable Advanced Stock Management on product (0 = No, 1 = Yes).')
-                    ),
-                    'depends_on_stock' => array(
-                        'label' => $this->l('Depends on stock'),
-                        'help' => $this->l('0 = Use quantity set in product, 1 = Use quantity from warehouse.')
-                    ),
-                    'warehouse' => array(
-                        'label' => $this->l('Warehouse'),
-                        'help' => $this->l('ID of the warehouse to set as storage.')
-                    ),
+                    
                 );
-
                 self::$default_values = array(
                     'id_category' => array((int)Configuration::get('PS_HOME_CATEGORY')),
                     'id_category_default' => null,
@@ -130,13 +86,8 @@ class AdminImportController extends AdminImportControllerCore
                     'depends_on_stock' => 0,
                 );
             break;
-
         }
-
     }
-
-
-    
 
    
 
@@ -175,7 +126,27 @@ class AdminImportController extends AdminImportControllerCore
         }
     }
 
+    protected function getTypeValuesOptions($nb_c)
+    {
+        $i = 0;
+        $no_pre_select = array('color', 'material', 'feature');
 
+        $options = '';
+        foreach ($this->available_fields as $k => $field) {
+            $options .= '<option value="'.$k.'"';
+            /*
+            if ($k === 'price_tin') {
+                ++$nb_c;
+            }
+            */
+            if ($i === ($nb_c + 1) && (!in_array($k, $no_pre_select))) {
+                $options .= ' selected="selected"';
+            }
+            $options .= '>'.$field['label'].'</option>';
+            ++$i;
+        }
+        return $options;
+    }
 
     /**
      * copyImg copy an image located in $url and save it in a path
@@ -290,8 +261,9 @@ class AdminImportController extends AdminImportControllerCore
 
     private function getLangOffset($iso_lang) {
         $offset = 0;
-        if (!empty(AdminImportController::$csvOffsets[$iso_lang])) { // offset relativo con respecto a los common attributes
-            $offset += AdminImportController::$csvOffsets[$iso_lang];
+        $arr = AdminImportController::csvOffsets();
+        if (!empty($arr[[$iso_lang]])) { // offset relativo con respecto a los common attributes
+            $offset += $arr[$iso_lang];
         }
         return $offset;
     }
@@ -312,7 +284,8 @@ class AdminImportController extends AdminImportControllerCore
     }
 
     private function getAttrOffset($attr) { // relativo con respecto a su lengua
-        return $this -> getCommonLengthAttr() + AdminImportController::$csvOffsets['combinationAttr'][$attr];
+        $arr = AdminImportController::csvOffsets();
+        return $this -> getCommonLengthAttr() + $arr['combinationAttr'][$attr];
     }
 
     private function getCombinationAttributes($line, $iso_lang) {
@@ -381,12 +354,24 @@ class AdminImportController extends AdminImportControllerCore
 
     protected function receiveTab()
     {
+        /*
         $type_value = Tools::getValue('type_value') ? Tools::getValue('type_value') : array();
         foreach ($type_value as $nb => $type) {
             if ($type != 'no') {
                 self::$column_mask[$type] = $nb;
             }
         }
+        */
+
+        // self::$column_mask[$nombre columna / propiedad producto] = $indice en csv;
+        self::$column_mask['reference'] = 0;
+        self::$column_mask['wholesale_price'] = 1;
+        self::$column_mask['price_tin'] = 2;
+        self::$column_mask['quantity'] = 3;
+        self::$column_mask['category'] = 4;
+        self::$column_mask['image'] = 5;
+        self::$column_mask['reduction_percent'] = 6;
+
     }
 
     public function productImport()
