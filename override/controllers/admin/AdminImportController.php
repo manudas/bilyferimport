@@ -1,11 +1,7 @@
 <?php
 class AdminImportController extends AdminImportControllerCore
 {
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     private static function csvOffsets(){
         return array(
             'combinationAttr' => array(
@@ -14,29 +10,18 @@ class AdminImportController extends AdminImportControllerCore
             ),
         );
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     private static $totalAttributes = 2; // color y material
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+   
     private static $commonAttrLength = 6;
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     public function __construct()
     {
         parent::__construct();
         switch ((int)Tools::getValue('entity')) {
            
             case $this->entities[$this->l('Products')]:
+                self::$validators['bullet'] = array('AdminImportController', 'createMultiLangField');
                 self::$validators['image'] = array(
                     'AdminImportController',
                     'split'
@@ -60,14 +45,14 @@ class AdminImportController extends AdminImportControllerCore
                     'tags' => array('label' => $this->l('Tags (x,y,z...)')),
                     'meta_title' => array('label' => $this->l('Meta title')),
                     
-                    'description_short' => array('label' => $this->l('Short description')),
-                    'name_english' => array('label' => $this->l('Nombre inglés')),
-                    'bullet1en' => array('label' => $this->l('Bullet1 en')),
-                    'bullet2en' => array('label' => $this->l('Bullet2 en')),
-                    'bullet3en' => array('label' => $this->l('Bullet3 en')),
-                    'tagsen' => array('label' => $this->l('Tags (x,y,z...)')),
-                    'meta_title_en' => array('label' => $this->l('Meta title en')),
-                    'meta_description_en' => array('label' => $this->l('Meta description en')),
+                    // 'description_short' => array('label' => $this->l('Short description')),
+                    'name' => array('label' => $this->l('Nombre inglés')),
+                    'bullet1' => array('label' => $this->l('Bullet1 en')),
+                    'bullet2' => array('label' => $this->l('Bullet2 en')),
+                    'bullet3' => array('label' => $this->l('Bullet3 en')),
+                    'tags' => array('label' => $this->l('Tags (x,y,z...)')),
+                    'meta_title' => array('label' => $this->l('Meta title en')),
+                    'meta_description' => array('label' => $this->l('Meta description en')),
 /*
                     'meta_keywords' => array('label' => $this->l('Meta keywords')),
                     
@@ -118,11 +103,6 @@ class AdminImportController extends AdminImportControllerCore
     * @param $in_array boolean
     * @return string or return array
     */
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
     public function getAvailableFields($in_array = false)
     {
         $i = 0;
@@ -151,11 +131,7 @@ class AdminImportController extends AdminImportControllerCore
             return implode("\n\r", $fields);
         }
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     protected function getTypeValuesOptions($nb_c)
     {
         $i = 0;
@@ -188,11 +164,6 @@ class AdminImportController extends AdminImportControllerCore
      * @param bool $regenerate
      * @return bool
      */
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
     protected static function copyImg($id_entity, $id_image = null, $url, $entity = 'products', $regenerate = true)
     {
         $tmpfile = tempnam(_PS_TMP_IMG_DIR_, 'ps_import');
@@ -278,11 +249,7 @@ class AdminImportController extends AdminImportControllerCore
         unlink($orig_tmpfile);
         return true;
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     private function getLangOffset($iso_lang) {
         $offset = 0;
         $arr = AdminImportController::csvOffsets();
@@ -291,11 +258,7 @@ class AdminImportController extends AdminImportControllerCore
         }
         return $offset;
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     private function getCommonLengthAttr() { // las columnas comunes a todas las lenguas (que no sean combinaciones)
         /* las columnas comunes a todas las lenguas (que no sean combinaciones) son 
          * 1 - ref
@@ -310,20 +273,12 @@ class AdminImportController extends AdminImportControllerCore
          */
         return AdminImportController::$commonAttrLength;
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     private function getAttrOffset($attr) { // relativo con respecto a su lengua
         $arr = AdminImportController::csvOffsets();
         return $this -> getCommonLengthAttr() + $arr['combinationAttr'][$attr];
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     private function getCombinationAttributes($line, $iso_lang) {
         $common_lenght_att = $this -> getCommonLengthAttr();
 /*
@@ -342,11 +297,7 @@ class AdminImportController extends AdminImportControllerCore
         );
         return $result;
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     private function getFirstCombinationAttOffset(){
         $common_lenght_att = $this -> getCommonLengthAttr();
         $colorOffset = $common_lenght_att + $this -> getAttrOffset('color');
@@ -358,22 +309,14 @@ class AdminImportController extends AdminImportControllerCore
             return $materialOffset;
         }
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     private function removeCombinationAttributes(&$line, $iso_lang){
         $firstCombinationAttrOffset = $this -> getFirstCombinationAttOffset();
         for ($i = 0; $i < AdminImportController::$totalAttributes; $i++){
             unset($line[$firstCombinationAttrOffset + $i]);
         }
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     private function removeOtherLanguageInfo(&$line, $iso_lang) {
         if (strtolower($iso_lang) == 'es' ) {
             $remove_lang_iso = 'en';
@@ -392,11 +335,7 @@ class AdminImportController extends AdminImportControllerCore
             unset($line[$i]);
         }
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     protected function receiveTab()
     {
         /*
@@ -414,12 +353,27 @@ class AdminImportController extends AdminImportControllerCore
         self::$column_mask['category'] = 4;
         self::$column_mask['image'] = 5;
         self::$column_mask['reduction_percent'] = 6;
+        self::$column_mask['name'] = 7;
+        self::$column_mask['bullet1'] = 8;
+        self::$column_mask['bullet2'] = 9;
+        self::$column_mask['bullet3'] = 10;
+        
+        self::$column_mask['tags'] = 11;
+        self::$column_mask['meta_title'] = 12;
+        self::$column_mask['meta_description'] = 13;
+        // self::$column_mask['description_short'] = 14;
+
+        self::$column_mask['name'] = 14;
+        self::$column_mask['bullet1'] = 15;
+        self::$column_mask['bullet2'] = 16;
+        self::$column_mask['bullet3'] = 17;
+        
+        self::$column_mask['tags'] = 18;
+        self::$column_mask['meta_title'] = 19;
+        self::$column_mask['meta_description'] = 20;
+
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     public function productImport()
     {
         if (!defined('PS_MASS_PRODUCT_CREATION')) {
@@ -430,7 +384,7 @@ class AdminImportController extends AdminImportControllerCore
 
 
         // borrar
-        echo "borrar 2"
+        echo "borrar 2";
         $default_language_id = (int)Configuration::get('PS_LANG_DEFAULT');
         $iso_lang = Tools::getValue('iso_lang');
         $id_lang = Language::getIdByIso(Tools::getValue('iso_lang'));
@@ -1014,11 +968,7 @@ class AdminImportController extends AdminImportControllerCore
         Module::processDeferedClearCache();
         Tag::updateTagCount();
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+   
     protected static function fillInfo($infos, $key, &$entity)
     {
         $infos = trim($infos);
@@ -1069,11 +1019,7 @@ class AdminImportController extends AdminImportControllerCore
         
         return true;
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+   
     public function productImportCreateCat($default_language_id, $category_name, $id_parent_category = null)
     {
         $category_to_create = new Category();
@@ -1104,11 +1050,7 @@ class AdminImportController extends AdminImportControllerCore
                 Db::getInstance()->getMsgError();
         }
     }
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
+    
     public function bilyferAttributeImport($info, $id_lang)
     {
         $default_language = Configuration::get('PS_LANG_DEFAULT');
@@ -1455,11 +1397,6 @@ class AdminImportController extends AdminImportControllerCore
         }
     }
  
-    /*
-    * module: bilyferimport
-    * date: 2017-06-26 09:47:21
-    * version: 0.1
-    */
     public function postProcess()
     {
         
