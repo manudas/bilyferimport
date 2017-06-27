@@ -19,4 +19,36 @@ class bilyferimport extends Module {
         $this->confirmUninstall = $this->l('¿Seguro que lo quiere desinstalar?');
     }
 
+
+    public function install() {
+        return $this -> installTabs() && parent::install();
+    }
+
+    private function installTabs() {
+
+
+		// Install Tabs
+		$parent_tab = new Tab();
+		// Need a foreach for the language
+        foreach (Language::getLanguages(true) as $lang)
+		    $parent_tab->name[$lang['id_lang']] = $this->l('BilyferProductImport');
+		$parent_tab->class_name = 'AdminBilyferProductImport';
+		$parent_tab->id_parent = 0; // Home tab
+		$parent_tab->module = $this->name;
+		$parent = $parent_tab->add();
+		
+		
+		$tab = new Tab();		
+		// Need a foreach for the language
+        foreach (Language::getLanguages(true) as $lang)
+		    $tab->name[$lang['id_lang']] = 'BilyferProductImport';
+		$tab->class_name = 'AdminBilyferProductImport';
+		$tab->id_parent = $parent_tab->id;
+		$tab->module = $this->name;
+		$son = $tab->add();
+
+        return $parent && $son;
+
+    }
+
 }
