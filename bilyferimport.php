@@ -24,6 +24,10 @@ class bilyferimport extends Module {
         return $this -> installTabs() && parent::install();
     }
 
+
+    public function uninstall() {
+        return $this -> uninstallTabs() && parent::uninstall();
+    }
     private function installTabs() {
 
 
@@ -50,5 +54,18 @@ class bilyferimport extends Module {
         return $parent && $son;
 
     }
+
+
+    private function uninstallTabs() {
+        $result = true;
+        $tab_list = Tab::getCollectionFromModule($this -> name);
+        if (!empty($tab_list)) {
+            foreach ($tab_list as $tab) {
+                $result &= $tab -> delete();
+            }
+        }
+        return $result;
+    }
+
 
 }
