@@ -30,11 +30,15 @@
 class AdminBilyferProductImportController extends ModuleAdminController
 {
 
+	public static $validators = array();
+	public static $default_values = array();
+    public static $column_mask = array();
+
 	public function __construct() {
 		$this->bootstrap = true;
 		parent::__construct();
 
-
+        $this->separator = ($separator = Tools::substr(strval(trim(Tools::getValue('separator'))), 0, 1)) ? $separator :  ';';
 
 		self::$validators['bullet'] = array('AdminImportController', 'createMultiLangField');
                 self::$validators['image'] = array(
@@ -107,7 +111,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
 		$this -> fields_form = array(
 			'tinymce' => true,
 			'legend' => array(
-				'title' =>  $this->l('Accepted combinations'),
+				'title' =>  $this->l('Product upload'),
 				'image' => '../img/admin/cog.gif'
 			),
 			'input' => array(
@@ -424,25 +428,54 @@ class AdminBilyferProductImportController extends ModuleAdminController
         self::$column_mask['meta_description'] = 20;
 
     }
-    
+
+    protected static function rewindBomAware($handle)
+    {
+        // A rewind wrapper that skips BOM signature wrongly
+        if (!is_resource($handle)) {
+            return false;
+        }
+        rewind($handle);
+        if (($bom = fread($handle, 3)) != "\xEF\xBB\xBF") {
+            rewind($handle);
+        }
+    }
+
+    protected function openCsvFile()
+    {
+        $file_obj = Tools::fileAttachment('bilyferfile');
+        // $file = AdminImportController::getPath(strval(preg_replace('/\.{2,}/', '.', $file_obj['tmp_name'] )));
+        $file = $file_obj['tmp_name'] ;
+        $handle = false;
+        if (is_file($file) && is_readable($file)) {
+            $handle = fopen($file, 'r');
+        }
+
+        if (!$handle) {
+            $this->errors[] = Tools::displayError('Cannot read the .CSV file');
+        }
+
+        self::rewindBomAware($handle);
+
+        for ($i = 0; $i < (int)Tools::getValue('skip'); ++$i) {
+            $line = fgetcsv($handle, MAX_LINE_SIZE, $this->separator);
+        }
+        return $handle;
+    }
+       
+
     public function productImport()
     {
         if (!defined('PS_MASS_PRODUCT_CREATION')) {
             define('PS_MASS_PRODUCT_CREATION', true);
         }
+
+
+
         $this->receiveTab();
+
+        // Tools::fileAttachment('bilyferfile')
         $handle = $this->openCsvFile();
-
-
-        // borrar
-        echo "borrar 2";
-        $default_language_id = (int)Configuration::get('PS_LANG_DEFAULT');
-        $iso_lang = Tools::getValue('iso_lang');
-        $id_lang = Language::getIdByIso(Tools::getValue('iso_lang'));
-        if (!Validate::isUnsignedId($id_lang)) {
-            $id_lang = $default_language_id;
-        }
-
 
 
         $lang_arr = array (
@@ -1455,25 +1488,34 @@ class AdminBilyferProductImportController extends ModuleAdminController
             $this->errors[] = Tools::displayError('This functionality has been disabled.');
             return;
         }
-        if (Tools::isSubmit('import')) {
-            if (Tools::getValue('csv')) {
-                $shop_is_feature_active = Shop::isFeatureActive();
+        // if (Tools::isSubmit('import')) {
+            if (Tools::fileAttachment('bilyferfile')) {
+                /*
+				$shop_is_feature_active = Shop::isFeatureActive();
                 if ((($shop_is_feature_active && $this->context->employee->isSuperAdmin()) || !$shop_is_feature_active) && Tools::getValue('truncate')) {
                     $this->truncateTables((int)Tools::getValue('entity'));
                 }
                 $import_type = false;
-                Db::getInstance()->disableCache();
-                switch ((int)Tools::getValue('entity')) {
+                */
+				Db::getInstance()->disableCache();
+                /*
+				switch ((int)Tools::getValue('entity')) {
                     case $this->entities[$import_type = $this->l('Products')]:
-                        $this->productImport();
+                */ 
+				        $this->productImport();
                         $this->clearSmartyCache();
+				/*		
                         break;
-                }
+                
+				}
+				*/
          
             } else {
                 $this->errors[] = $this->l('You must upload a file in order to proceed to the next step');
             }
-        } 
+        // } 
+		return parent::postProcess();
+		/*
         switch ((int)Tools::getValue('entity')) {
             case $this->entities[$import_type != $this->l('Products')]:
                 return parent::postProcess();
@@ -1483,6 +1525,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 return AdminController::postProcess();
             break;
         }
+		*/
     }
 
 
