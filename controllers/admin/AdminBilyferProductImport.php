@@ -30,6 +30,170 @@
 class AdminBilyferProductImportController extends ModuleAdminController
 {
 
+
+    private static function csvOffsets(){
+        return array(
+            'commonAttributes' => array(
+                'id_product' => 0,
+                'reference' => 1,
+                'wholesale_price' => 2,
+                'price_tin' => 3,
+                'quantity' => 4,
+                'category' => 5,
+                'image' => 6,
+                'reduction_percent' => 7,
+            ),
+            'combinationAttr' => array(
+                'color' => 0,
+                'material' => 1
+            ),
+            'es' => array (
+                'name' => 0,
+                'bullet' => 1,
+                'bullet' => 2,
+                'bullet' => 3,
+                'tags' => 4,
+                'meta_title' => 5,
+                'meta_description' => 6,
+            ),
+            'en' => array (
+                'name' => 0,
+                'bullet' => 1,
+                'bullet' => 2,
+                'bullet' => 3,
+                'tags' => 4,
+                'meta_title' => 5,
+                'meta_description' => 6,
+            ),
+            'lang' => array (
+                'es' => 0,
+                'en' => 1
+            )
+        );
+    }
+    
+    private function getLangOffset($iso_lang) {
+        $offset = 0;
+        $arr = self::csvOffsets();
+        if (!empty($arr[lang[$iso_lang]])) { // offset relativo con respecto a los common attributes
+            $offset = $arr[lang[$iso_lang]];
+        }
+        return $offset;
+    }
+    
+    private function getCommonLengthAttr() { // las columnas comunes a todas las lenguas (que no sean combinaciones)
+        /* las columnas comunes a todas las lenguas (que no sean combinaciones) son 
+         * 0 - id
+         * 1 - ref
+         * 2 - precio al por mayor
+         * 3 - pvp
+         * 4 - stock
+         * 5 - categoria
+         * 6 - imagen
+         *
+         * Devolvemos una propiedad estática por si esto cambia en el futuro
+         *
+         */
+        $arr = self::csvOffsets();
+        return count($arr['commonAttributes']);
+    }
+    
+    private function getCombinationAttributeLength() {
+        $arr = self::csvOffsets();
+        return count($arr['combinationAttr']);
+    }
+
+    private function getAttrOffset($attr) { // relativo con respecto a su lengua
+        $arr = self::csvOffsets();
+        return /*$this -> getCommonLengthAttr() +*/ $arr['combinationAttr'][$attr];
+    }
+    
+    private function getCombinationAttributes($line, $iso_lang) {
+        $common_lenght_att = $this -> getCommonLengthAttr();
+
+        $result = array(
+            0 => array( 'group'     => 'color',
+                        'attribute' => $line[$common_lenght_att + $this -> getAttrOffset('color')]),
+            2 => array( 'group'     => 'material',  
+                        'attribute' => $line[$common_lenght_att + $this -> getAttrOffset('material')])
+        );
+        return $result;
+    }
+
+    private function getLanguagedAttibuteSize($iso_code){
+        $offset = 0;
+        $arr = self::csvOffsets();
+        return (count($arr[$iso_code]));
+    }
+    
+    private function getFirstCombinationAttOffset(){
+        $common_lenght_att = $this -> getCommonLengthAttr();
+        $colorOffset = $common_lenght_att + $this -> getAttrOffset('color');
+        $materialOffset = $common_lenght_att + $this -> getAttrOffset('material');
+        if ($colorOffset < $materialOffset) {
+            return $colorOffset;
+        }
+        else {
+            return $materialOffset;
+        }
+    }
+
+    private function getLastCombinationAttOffset(){
+        $common_lenght_att = $this -> getCommonLengthAttr();
+        $colorOffset = $common_lenght_att + $this -> getAttrOffset('color');
+        $materialOffset = $common_lenght_att + $this -> getAttrOffset('material');
+        if ($colorOffset > $materialOffset) {
+            return $colorOffset;
+        }
+        else {
+            return $materialOffset;
+        }
+    }
+    
+    private function removeCombinationAttributes(&$line, $iso_lang){
+        $firstCombinationAttrOffset = $this -> getFirstCombinationAttOffset();
+        $attribute_combination_size = $this -> getCombinationAttributeLength();
+        for ($i = 0; $i < $attribute_combination_size; $i++){
+            unset($line[$firstCombinationAttrOffset + $i]);
+        }
+    }
+    
+    private function removeOtherLanguageInfo(&$line, $iso_lang) {
+        if (strtolower($iso_lang) == 'es' ) {
+            $remove_lang_iso = 'en';
+        }
+        else {
+            $remove_lang_iso = 'es';
+        }
+
+        $common_attr_size = $this -> getCommonLengthAttr();
+
+        $attribute_combination_size = $this -> getCombinationAttributeLength();
+
+        $lang_offset = $this -> getLangOffset($iso_lang);
+
+        $startIndex = $common_attr_size 
+                        + $attribute_combination_size 
+                        + ($lang_offset * $this -> getLanguagedAttibuteSize($remove_lang_iso));
+
+        // $lang_offset = $this -> getLangOffset($iso_lang);
+        if ($lang_offset != 0) {
+            $remove_index_limit = count($line);
+        }
+        else {
+            $remove_index_limit = $this -> getLangOffset($iso_lang);
+        }
+        for ($i = $startIndex; $i < $remove_index_limit; $i++) {
+            unset($line[$i]);
+        }
+    }
+
+
+
+
+
+
+
 	public static $validators = array();
 	public static $default_values = array();
     public static $column_mask = array();
@@ -47,6 +211,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 );
                 $this->available_fields = array(
                     'no' => array('label' => $this->l('Ignore this column')),
+                    'id_product' => array('label' => $this->l('Product ID')),
                     'reference' => array('label' => $this->l('Reference #')),
                     'wholesale_price' => array('label' => $this->l('Wholesale price')),
                     'price_tin' => array('label' => $this->l('Price tax included')),
@@ -57,13 +222,15 @@ class AdminBilyferProductImportController extends ModuleAdminController
                     
                     'color' => array('label' => $this->l('Color')),
                     'material' => array('label' => $this->l('Material')),
+
                     'name' => array('label' => $this->l('Name')),
                     'bullet' => array('label' => $this->l('Bullet1 es')),
                     'bullet' => array('label' => $this->l('Bullet2 es')),
                     'bullet' => array('label' => $this->l('Bullet3 es')),
                     'tags' => array('label' => $this->l('Tags (x,y,z...)')),
                     'meta_title' => array('label' => $this->l('Meta title')),
-                    
+                    'meta_description' => array('label' => $this->l('Meta description')),
+
                     // 'description_short' => array('label' => $this->l('Short description')),
                     'name' => array('label' => $this->l('Nombre inglés')),
                     'bullet' => array('label' => $this->l('Bullet1 en')),
@@ -144,19 +311,6 @@ class AdminBilyferProductImportController extends ModuleAdminController
 	}
 
   
-    private static function csvOffsets(){
-        return array(
-            'combinationAttr' => array(
-                'color' => 1,
-                'material' => 2
-            ),
-        );
-    }
-    
-    private static $totalAttributes = 2; // color y material
-   
-    private static $commonAttrLength = 6;
-    
     
    
     /*
@@ -312,84 +466,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
         return true;
     }
     
-    private function getLangOffset($iso_lang) {
-        $offset = 0;
-        $arr = self::csvOffsets();
-        if (!empty($arr[[$iso_lang]])) { // offset relativo con respecto a los common attributes
-            $offset += $arr[$iso_lang];
-        }
-        return $offset;
-    }
     
-    private function getCommonLengthAttr() { // las columnas comunes a todas las lenguas (que no sean combinaciones)
-        /* las columnas comunes a todas las lenguas (que no sean combinaciones) son 
-         * 1 - ref
-         * 2 - precio al por mayor
-         * 3 - pvp
-         * 4 - stock
-         * 5 - categoria
-         * 6 - imagen
-         *
-         * Devolvemos una propiedad estática por si esto cambia en el futuro
-         *
-         */
-        return self::$commonAttrLength;
-    }
-    
-    private function getAttrOffset($attr) { // relativo con respecto a su lengua
-        $arr = self::csvOffsets();
-        return $this -> getCommonLengthAttr() + $arr['combinationAttr'][$attr];
-    }
-    
-    private function getCombinationAttributes($line, $iso_lang) {
-        $common_lenght_att = $this -> getCommonLengthAttr();
-
-        $result = array(
-            0 => array( 'group'     => 'color',
-                        'attribute' => $line[$common_lenght_att + $this -> getAttrOffset('color')]),
-            2 => array( 'group'     => 'material',  
-                        'attribute' => $line[$common_lenght_att + $this -> getAttrOffset('material')])
-        );
-        return $result;
-    }
-    
-    private function getFirstCombinationAttOffset(){
-        $common_lenght_att = $this -> getCommonLengthAttr();
-        $colorOffset = $common_lenght_att + $this -> getAttrOffset('color');
-        $materialOffset = $common_lenght_att + $this -> getAttrOffset('material');
-        if ($colorOffset < $materialOffset) {
-            return $colorOffset;
-        }
-        else {
-            return $materialOffset;
-        }
-    }
-    
-    private function removeCombinationAttributes(&$line, $iso_lang){
-        $firstCombinationAttrOffset = $this -> getFirstCombinationAttOffset();
-        for ($i = 0; $i < self::$totalAttributes; $i++){
-            unset($line[$firstCombinationAttrOffset + $i]);
-        }
-    }
-    
-    private function removeOtherLanguageInfo(&$line, $iso_lang) {
-        if (strtolower($iso_lang) == 'es' ) {
-            $remove_lang_iso = 'en';
-        }
-        else {
-            $remove_lang_iso = 'es';
-        }
-        $lang_offset = $this -> getLangOffset($iso_lang);
-        if ($lang_offset != 0) {
-            $remove_index_limit = count($line);
-        }
-        else {
-            $remove_index_limit = $this -> getLangOffset($iso_lang);
-        }
-        for ($i = $lang_offset; $i < $remove_index_limit; $i++) {
-            unset($line[$i]);
-        }
-    }
     
     protected function receiveTab()
     {
@@ -401,31 +478,32 @@ class AdminBilyferProductImportController extends ModuleAdminController
             }
         }
         */
-        self::$column_mask['reference'] = 0;
-        self::$column_mask['wholesale_price'] = 1;
-        self::$column_mask['price_tin'] = 2;
-        self::$column_mask['quantity'] = 3;
-        self::$column_mask['category'] = 4;
-        self::$column_mask['image'] = 5;
-        self::$column_mask['reduction_percent'] = 6;
-        self::$column_mask['name'] = 7;
-        self::$column_mask['bullet1'] = 8;
-        self::$column_mask['bullet2'] = 9;
-        self::$column_mask['bullet3'] = 10;
+        self::$column_mask['id_product'] = 0;
+        self::$column_mask['reference'] = 1;
+        self::$column_mask['wholesale_price'] = 2;
+        self::$column_mask['price_tin'] = 3;
+        self::$column_mask['quantity'] = 4;
+        self::$column_mask['category'] = 5;
+        self::$column_mask['image'] = 6;
+        self::$column_mask['reduction_percent'] = 7;
+        self::$column_mask['name'] = 8;
+        self::$column_mask['bullet1'] = 9;
+        self::$column_mask['bullet2'] = 10;
+        self::$column_mask['bullet3'] = 11;
         
-        self::$column_mask['tags'] = 11;
-        self::$column_mask['meta_title'] = 12;
-        self::$column_mask['meta_description'] = 13;
+        self::$column_mask['tags'] = 12;
+        self::$column_mask['meta_title'] = 13;
+        self::$column_mask['meta_description'] = 14;
         // self::$column_mask['description_short'] = 14;
 
-        self::$column_mask['name'] = 14;
-        self::$column_mask['bullet1'] = 15;
-        self::$column_mask['bullet2'] = 16;
-        self::$column_mask['bullet3'] = 17;
+        self::$column_mask['name'] = 15;
+        self::$column_mask['bullet1'] = 16;
+        self::$column_mask['bullet2'] = 17;
+        self::$column_mask['bullet3'] = 18;
         
-        self::$column_mask['tags'] = 18;
-        self::$column_mask['meta_title'] = 19;
-        self::$column_mask['meta_description'] = 20;
+        self::$column_mask['tags'] = 19;
+        self::$column_mask['meta_title'] = 20;
+        self::$column_mask['meta_description'] = 21;
 
     }
 
@@ -462,7 +540,42 @@ class AdminBilyferProductImportController extends ModuleAdminController
         }
         return $handle;
     }
-       
+           
+    private static function getMaskedRow($row, $iso_lang)
+    {
+        /* 
+         * BASAMOS LA POSICION DEL IDIOMA EN NUESTAS VARIABLES ESTATICAS
+         * csvOffset y sus funciones asociadas
+         *
+         */
+        $common_attr_size = $this -> getCommonLengthAttr();
+
+        $lang_offset = $this -> getLangOffset($iso_lang);
+
+        $lang_size = $this ->getLanguagedAttibuteSize($iso_lang);
+
+        $res = array();
+
+        if (is_array(self::$column_mask)) {
+
+            $column_keys = array_keys(self::$column_mask);
+
+/*
+            foreach (self::$column_mask as $type => $nb) {
+                $res[$type] = isset($row[$nb]) ? $row[$nb] : null;
+            }
+*/
+
+            for ($i = 0; $i < $common_attr_size; $i++){
+                $type = $column_keys[$i];
+                $nb = self::$column_mask[$i];
+                $res[$type] = isset($row[$nb]) ? $row[$nb] : null;
+            }
+
+        }
+
+        return $res;
+    }
 
     public function productImport()
     {
@@ -479,8 +592,8 @@ class AdminBilyferProductImportController extends ModuleAdminController
 
 
         $lang_arr = array (
-            Language::getIdByIso('es'),
-            Language::getIdByIso('en')
+            'es' => Language::getIdByIso('es'),
+            'en' => Language::getIdByIso('en')
         );
         
 
@@ -499,18 +612,19 @@ class AdminBilyferProductImportController extends ModuleAdminController
 
 
 
-            foreach ($lang_arr as $id_lang) {
+            foreach ($lang_arr as $iso_lang => $id_lang) {
 
-                $info = self::getMaskedRow($line);
+                $info = self::getMaskedRow($line, $iso_lang);
+
                 $combinations = $this -> getCombinationAttributes($info, $iso_lang);
                 
                 $this -> removeCombinationAttributes($info, $iso_lang);
                 
                 $this -> removeOtherLanguageInfo($info, $iso_lang);
-    /*
-                if ($force_ids && isset($info['id']) && (int)$info['id']) {
+    
+                if (/*$force_ids && */ isset($info['id']) && (int)$info['id']) {
                     $product = new Product((int)$info['id']);
-                } elseif ($match_ref && array_key_exists('reference', $info)) {
+                } elseif (/*$match_ref && */ array_key_exists('reference', $info)) {
                     $datas = Db::getInstance()->getRow('
                             SELECT p.`id_product`
                             FROM `'._DB_PREFIX_.'product` p
@@ -522,12 +636,17 @@ class AdminBilyferProductImportController extends ModuleAdminController
                     } else {
                         $product = new Product();
                     }
-                } elseif (array_key_exists('id', $info) && (int)$info['id'] && Product::existsInDatabase((int)$info['id'], 'product')) {
+                } 
+                /*
+                elseif (array_key_exists('id', $info) && (int)$info['id'] && Product::existsInDatabase((int)$info['id'], 'product')) {
                     $product = new Product((int)$info['id']);
-                } else {
+                } 
+                */
+                else {
                     $product = new Product();
                 }
-    */
+    
+    /*
                 $datas = Db::getInstance()->getRow('
                         SELECT p.`id_product`
                         FROM `'._DB_PREFIX_.'product` p
@@ -539,6 +658,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 } else {
                     $product = new Product();
                 }
+    */
                 $update_advanced_stock_management_value = false;
                 if (isset($product->id) && $product->id && Product::existsInDatabase((int)$product->id, 'product')) {
                     $product->loadStockData();

@@ -28,6 +28,7 @@ class AdminImportController extends AdminImportControllerCore
                 );
                 $this->available_fields = array(
                     'no' => array('label' => $this->l('Ignore this column')),
+                    'id_product' => array('label' => $this->l('ID')),
                     'reference' => array('label' => $this->l('Reference #')),
                     'wholesale_price' => array('label' => $this->l('Wholesale price')),
                     'price_tin' => array('label' => $this->l('Price tax included')),
