@@ -75,8 +75,8 @@ class AdminBilyferProductImportController extends ModuleAdminController
     private function getLangOffset($iso_lang) {
         $offset = 0;
         $arr = self::csvOffsets();
-        if (!empty($arr[lang[$iso_lang]])) { // offset relativo con respecto a los common attributes
-            $offset = $arr[lang[$iso_lang]];
+        if (!empty($arr['lang'][$iso_lang])) { // offset relativo con respecto a los common attributes
+            $offset = $arr['lang'][$iso_lang];
         }
         return $offset;
     }
@@ -108,7 +108,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
         return /*$this -> getCommonLengthAttr() +*/ $arr['combinationAttr'][$attr];
     }
     
-    private function getCombinationAttributes($line, $iso_lang) {
+    private function getCombinationAttributes($line) {
         $common_lenght_att = $this -> getCommonLengthAttr();
 
         $result = array(
@@ -149,7 +149,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
             return $materialOffset;
         }
     }
-    
+    /*
     private function removeCombinationAttributes(&$line, $iso_lang){
         $firstCombinationAttrOffset = $this -> getFirstCombinationAttOffset();
         $attribute_combination_size = $this -> getCombinationAttributeLength();
@@ -187,10 +187,18 @@ class AdminBilyferProductImportController extends ModuleAdminController
             unset($line[$i]);
         }
     }
+*/
 
 
-
-
+    protected static function setEntityDefaultValues(&$entity)
+    {
+        $members = get_object_vars($entity);
+        foreach (self::$default_values as $k => $v) {
+            if ((array_key_exists($k, $members) && $entity->$k === null) || !array_key_exists($k, $members)) {
+                $entity->$k = $v;
+            }
+        }
+    }
 
 
 
@@ -203,10 +211,11 @@ class AdminBilyferProductImportController extends ModuleAdminController
 		parent::__construct();
 
         $this->separator = ($separator = Tools::substr(strval(trim(Tools::getValue('separator'))), 0, 1)) ? $separator :  ';';
-
-		self::$validators['bullet'] = array('AdminImportController', 'createMultiLangField');
+        $this->multiple_value_separator = ($separator = Tools::substr(strval(trim(Tools::getValue('multiple_value_separator'))), 0, 1)) ? $separator :  ',';
+        
+		self::$validators['bullet'] = array('AdminBilyferProductImportController', 'createMultiLangField');
                 self::$validators['image'] = array(
-                    'AdminImportController',
+                    'AdminBilyferProductImportController',
                     'split'
                 );
                 $this->available_fields = array(
@@ -548,11 +557,11 @@ class AdminBilyferProductImportController extends ModuleAdminController
          * csvOffset y sus funciones asociadas
          *
          */
-        $common_attr_size = $this -> getCommonLengthAttr();
+        $common_attr_size = self::getCommonLengthAttr();
 
-        $lang_offset = $this -> getLangOffset($iso_lang);
+        $lang_offset = self::getLangOffset($iso_lang);
 
-        $lang_size = $this ->getLanguagedAttibuteSize($iso_lang);
+        $lang_size = self::getLanguagedAttibuteSize($iso_lang);
 
         $res = array();
 
@@ -568,7 +577,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
 
             for ($i = 0; $i < $common_attr_size; $i++){
                 $type = $column_keys[$i];
-                $nb = self::$column_mask[$i];
+                $nb = self::$column_mask[$type];
                 $res[$type] = isset($row[$nb]) ? $row[$nb] : null;
             }
 
@@ -576,6 +585,48 @@ class AdminBilyferProductImportController extends ModuleAdminController
 
         return $res;
     }
+
+    protected static function split($field)
+    {
+        if (empty($field)) {
+            return array();
+        }
+
+        $separator = Tools::getValue('multiple_value_separator');
+        if (is_null($separator) || trim($separator) == '') {
+            $separator = ',';
+        }
+
+        do {
+            $uniqid_path = _PS_UPLOAD_DIR_.uniqid();
+        } while (file_exists($uniqid_path));
+        file_put_contents($uniqid_path, $field);
+        $tab = '';
+        if (!empty($uniqid_path)) {
+            $fd = fopen($uniqid_path, 'r');
+            $tab = fgetcsv($fd, MAX_LINE_SIZE, $separator);
+            fclose($fd);
+            if (file_exists($uniqid_path)) {
+                @unlink($uniqid_path);
+            }
+        }
+
+        if (empty($tab) || (!is_array($tab))) {
+            return array();
+        }
+        return $tab;
+    }
+
+    protected static function createMultiLangField($field)
+    {
+        $res = array();
+        foreach (Language::getIDs(false) as $id_lang) {
+            $res[$id_lang] = $field;
+        }
+
+        return $res;
+    }
+
 
     public function productImport()
     {
@@ -590,6 +641,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
         // Tools::fileAttachment('bilyferfile')
         $handle = $this->openCsvFile();
 
+        $default_language_id = (int)Configuration::get('PS_LANG_DEFAULT');
 
         $lang_arr = array (
             'es' => Language::getIdByIso('es'),
@@ -616,11 +668,11 @@ class AdminBilyferProductImportController extends ModuleAdminController
 
                 $info = self::getMaskedRow($line, $iso_lang);
 
-                $combinations = $this -> getCombinationAttributes($info, $iso_lang);
+                $combinations = $this -> getCombinationAttributes($line, $iso_lang);
                 
-                $this -> removeCombinationAttributes($info, $iso_lang);
+                //$this -> removeCombinationAttributes($info, $iso_lang);
                 
-                $this -> removeOtherLanguageInfo($info, $iso_lang);
+                // $this -> removeOtherLanguageInfo($info, $iso_lang);
     
                 if (/*$force_ids && */ isset($info['id']) && (int)$info['id']) {
                     $product = new Product((int)$info['id']);
@@ -672,8 +724,8 @@ class AdminBilyferProductImportController extends ModuleAdminController
                         }
                     }
                 }
-                AdminImportController::setEntityDefaultValues($product);
-                AdminImportController::arrayWalk($info, array('AdminImportController', 'fillInfo'), $product);
+                self::setEntityDefaultValues($product);
+                AdminImportController::arrayWalk($info, array('AdminBilyferProductImportController', 'fillInfo'), $product);
                 if (!$shop_is_feature_active) {
                     $product->shop = (int)Configuration::get('PS_SHOP_DEFAULT');
                 } elseif (!isset($product->shop) || empty($product->shop)) {
@@ -776,11 +828,11 @@ class AdminBilyferProductImportController extends ModuleAdminController
                             } else {
                                 $category_to_create = new Category();
                                 $category_to_create->id = (int)$value;
-                                $category_to_create->name = AdminImportController::createMultiLangField($value);
+                                $category_to_create->name = self::createMultiLangField($value);
                                 $category_to_create->active = 1;
                                 $category_to_create->id_parent = Configuration::get('PS_HOME_CATEGORY'); // Default parent is home for unknown category to create
                                 $category_link_rewrite = Tools::link_rewrite($category_to_create->name[$default_language_id]);
-                                $category_to_create->link_rewrite = AdminImportController::createMultiLangField($category_link_rewrite);
+                                $category_to_create->link_rewrite = self::createMultiLangField($category_link_rewrite);
                                 if (($field_error = $category_to_create->validateFields(UNFRIENDLY_ERROR, true)) === true &&
                                     ($lang_field_error = $category_to_create->validateFieldsLang(UNFRIENDLY_ERROR, true)) === true && $category_to_create->add()) {
                                     $product->id_category[] = (int)$category_to_create->id;
@@ -830,7 +882,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                     );
                 }
                 if (!(is_array($product->link_rewrite) && count($product->link_rewrite))) {
-                    $product->link_rewrite = AdminImportController::createMultiLangField($link_rewrite);
+                    $product->link_rewrite = self::createMultiLangField($link_rewrite);
                 } else {
                     $product->link_rewrite[(int)$id_lang] = $link_rewrite;
                 }
@@ -853,7 +905,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 if ($product->id && Product::existsInDatabase((int)$product->id, 'product')) {
                     $productExistsInDatabase = true;
                 }
-                if (($match_ref && $product->reference && $product->existsRefInDatabase($product->reference)) || $productExistsInDatabase) {
+                if ((/*$match_ref && */$product->reference && $product->existsRefInDatabase($product->reference)) || $productExistsInDatabase) {
                     $product->date_upd = date('Y-m-d H:i:s');
                 }
                 $res = false;
@@ -863,7 +915,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                     if ($product->quantity == null) {
                         $product->quantity = 0;
                     }
-                    if ($match_ref && $product->reference && $product->existsRefInDatabase($product->reference)) {
+                    if (/*$match_ref && */$product->reference && $product->existsRefInDatabase($product->reference)) {
                         $datas = Db::getInstance()->getRow('
                             SELECT product_shop.`date_add`, p.`id_product`
                             FROM `'._DB_PREFIX_.'product` p
@@ -999,7 +1051,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                         }
                         Tag::deleteTagsForProduct($product->id);
                         if (!is_array($product->tags) && !empty($product->tags)) {
-                            $product->tags = AdminImportController::createMultiLangField($product->tags);
+                            $product->tags = self::createMultiLangField($product->tags);
                             foreach ($product->tags as $key => $tags) {
                                 $is_tag_added = Tag::addTags($key, $product->id, $tags, $this->multiple_value_separator);
                                 if (!$is_tag_added) {
@@ -1077,9 +1129,9 @@ class AdminBilyferProductImportController extends ModuleAdminController
                             if (!empty($feature_name) && !empty($feature_value)) {
                                 $id_feature = (int)Feature::addFeatureImport($feature_name, $position);
                                 $id_product = null;
-                                if ($force_ids || $match_ref) {
+                                //if ($force_ids || $match_ref) {
                                     $id_product = (int)$product->id;
-                                }
+                                //}
                                 $id_feature_value = (int)FeatureValue::addFeatureValueImport($id_feature, $feature_value, $id_product, $id_lang, $custom);
                                 Product::addFeatureProductImport($product->id, $id_feature, $id_feature_value);
                             }
@@ -1233,11 +1285,11 @@ class AdminBilyferProductImportController extends ModuleAdminController
         } else {
             $category_to_create->id_shop_default = (int)Context::getContext()->shop->id;
         }
-        $category_to_create->name = AdminImportController::createMultiLangField(trim($category_name));
+        $category_to_create->name = self::createMultiLangField(trim($category_name));
         $category_to_create->active = 1;
         $category_to_create->id_parent = (int)$id_parent_category ? (int)$id_parent_category : (int)Configuration::get('PS_HOME_CATEGORY'); // Default parent is home for unknown category to create
         $category_link_rewrite = Tools::link_rewrite($category_to_create->name[$default_language_id]);
-        $category_to_create->link_rewrite = AdminImportController::createMultiLangField($category_link_rewrite);
+        $category_to_create->link_rewrite = self::createMultiLangField($category_link_rewrite);
         if (($field_error = $category_to_create->validateFields(UNFRIENDLY_ERROR, true)) === true &&
             ($lang_field_error = $category_to_create->validateFieldsLang(UNFRIENDLY_ERROR, true)) === true && $category_to_create->add()) {
             /**
@@ -1270,7 +1322,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
             $attributes[$attribute['attribute_group'].'_'.$attribute['name']] = (int)$attribute['id_attribute'];
         }
         $info = array_map('trim', $info);
-        AdminImportController::setDefaultValues($info);
+        self::setDefaultValues($info);
         if (!$shop_is_feature_active) {
             $info['shop'] = 1;
         } elseif (!isset($info['shop']) || empty($info['shop'])) {
@@ -1289,7 +1341,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
         }
         if (isset($info['id_product']) && $info['id_product']) {
             $product = new Product((int)$info['id_product'], false, $id_lang);
-        } elseif (Tools::getValue('match_ref') && isset($info['product_reference']) && $info['product_reference']) {
+        } elseif (/*Tools::getValue('match_ref') && */isset($info['product_reference']) && $info['product_reference']) {
             $datas = Db::getInstance()->getRow('
                 SELECT p.`id_product`
                 FROM `'._DB_PREFIX_.'product` p
@@ -1321,7 +1373,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                     $lang_field_error = $image->validateFieldsLang(UNFRIENDLY_ERROR, true);
                     if ($field_error === true && $lang_field_error === true && $image->add()) {
                         $image->associateTo($id_shop_list);
-                        if (!AdminImportController::copyImg($product->id, $image->id, $url, 'products', !$regenerate)) {
+                        if (!self::copyImg($product->id, $image->id, $url, 'products', !$regenerate)) {
                             $this->warnings[] = sprintf(Tools::displayError('Error copying image: %s'), $url);
                             $image->delete();
                         } else {
