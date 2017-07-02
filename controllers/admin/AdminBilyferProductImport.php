@@ -188,7 +188,14 @@ class AdminBilyferProductImportController extends ModuleAdminController
         }
     }
 */
-
+    protected static function setDefaultValues(&$info)
+    {
+        foreach (self::$default_values as $k => $v) {
+            if (!isset($info[$k]) || $info[$k] == '') {
+                $info[$k] = $v;
+            }
+        }
+    }
 
     protected static function setEntityDefaultValues(&$entity)
     {
@@ -1215,7 +1222,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                     }
                 }
                 foreach ($combinations as $combination) {
-                    $result = $this -> bilyferAttributeImport($combination, $id_lang);
+                    $result = $this -> bilyferAttributeImport($combination, null);
                 }
             }
         }
@@ -1309,7 +1316,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
     
     public function bilyferAttributeImport($info, $id_lang)
     {
-        $default_language = Configuration::get('PS_LANG_DEFAULT');
+        $default_language_id = (int)Configuration::get('PS_LANG_DEFAULT');
         if (!Validate::isUnsignedId($id_lang)) {
             $id_lang = $default_language_id;
         }
