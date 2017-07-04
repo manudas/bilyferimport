@@ -220,72 +220,92 @@ class AdminBilyferProductImportController extends ModuleAdminController
         $this->separator = ($separator = Tools::substr(strval(trim(Tools::getValue('separator'))), 0, 1)) ? $separator :  ';';
         $this->multiple_value_separator = ($separator = Tools::substr(strval(trim(Tools::getValue('multiple_value_separator'))), 0, 1)) ? $separator :  ',';
         
-		self::$validators['bullet'] = array('AdminBilyferProductImportController', 'createMultiLangField');
-                self::$validators['image'] = array(
-                    'AdminBilyferProductImportController',
-                    'split'
-                );
-                $this->available_fields = array(
-                    'no' => array('label' => $this->l('Ignore this column')),
-                    'id_product' => array('label' => $this->l('Product ID')),
-                    'reference' => array('label' => $this->l('Reference #')),
-                    'wholesale_price' => array('label' => $this->l('Wholesale price')),
-                    'price_tin' => array('label' => $this->l('Price tax included')),
-                    'quantity' => array('label' => $this->l('Quantity')),
-                    'category' => array('label' => $this->l('Categories (x,y,z...)')),
-                    'image' => array('label' => $this->l('Image URLs (x,y,z...)')),
-                    'reduction_percent' => array('label' => $this->l('Discount percent')),
-                    
-                    'color' => array('label' => $this->l('Color')),
-                    'material' => array('label' => $this->l('Material')),
+		self::$validators['bullet1'] = array('AdminBilyferProductImportController', 'createMultiLangField');
+        self::$validators['bullet2'] = array('AdminBilyferProductImportController', 'createMultiLangField');
+		self::$validators['bullet3'] = array('AdminBilyferProductImportController', 'createMultiLangField');
 
-                    'name' => array('label' => $this->l('Name')),
-                    'bullet' => array('label' => $this->l('Bullet1 es')),
-                    'bullet' => array('label' => $this->l('Bullet2 es')),
-                    'bullet' => array('label' => $this->l('Bullet3 es')),
-                    'tags' => array('label' => $this->l('Tags (x,y,z...)')),
-                    'meta_title' => array('label' => $this->l('Meta title')),
-                    'meta_description' => array('label' => $this->l('Meta description')),
+        self::$validators['image'] = array('AdminBilyferProductImportController','split');
+        self::$validators['price_tin'] = array('AdminBilyferProductImportController', 'getPrice');
+        self::$validators['reduction_percent'] = array('AdminBilyferProductImportController', 'getPrice');
+        self::$validators['wholesale_price'] = array('AdminBilyferProductImportController', 'getPrice');
+        self::$validators['name'] = array('AdminBilyferProductImportController', 'createMultiLangField');
+        self::$validators['description'] = array('AdminBilyferProductImportController', 'createMultiLangField');
+        self::$validators['description_short'] = array('AdminBilyferProductImportController', 'createMultiLangField');
+        self::$validators['meta_title'] = array('AdminBilyferProductImportController', 'createMultiLangField');
+        self::$validators['meta_keywords'] = array('AdminBilyferProductImportController', 'createMultiLangField');
+        self::$validators['link_rewrite'] = array('AdminBilyferProductImportController', 'createMultiLangField');
+        self::$validators['category'] = array('AdminBilyferProductImportController', 'split');
 
-                    // 'description_short' => array('label' => $this->l('Short description')),
-                    'name' => array('label' => $this->l('Nombre inglés')),
-                    'bullet' => array('label' => $this->l('Bullet1 en')),
-                    'bullet' => array('label' => $this->l('Bullet2 en')),
-                    'bullet' => array('label' => $this->l('Bullet3 en')),
-                    'tags' => array('label' => $this->l('Tags (x,y,z...)')),
-                    'meta_title' => array('label' => $this->l('Meta title en')),
-                    'meta_description' => array('label' => $this->l('Meta description en')),
 
-                );
-                self::$default_values = array(
-                    'id_category' => array((int)Configuration::get('PS_HOME_CATEGORY')),
-                    'id_category_default' => null,
-                    'active' => '1',
-                    'width' => 0.000000,
-                    'height' => 0.000000,
-                    'depth' => 0.000000,
-                    'weight' => 0.000000,
-                    'visibility' => 'both',
-                    'additional_shipping_cost' => 0.00,
-                    'unit_price' => 0,
-                    'quantity' => 0,
-                    'minimal_quantity' => 1,
-                    'price' => 0,
-                    'id_tax_rules_group' => 0,
-                    'description_short' => array((int)Configuration::get('PS_LANG_DEFAULT') => ''),
-                    'link_rewrite' => array((int)Configuration::get('PS_LANG_DEFAULT') => ''),
-                    'online_only' => 0,
-                    'condition' => 'new',
-                    'available_date' => date('Y-m-d'),
-                    'date_add' => date('Y-m-d H:i:s'),
-                    'date_upd' => date('Y-m-d H:i:s'),
-                    'customizable' => 0,
-                    'uploadable_files' => 0,
-                    'text_fields' => 0,
-                    'advanced_stock_management' => 0,
-                    'depends_on_stock' => 0,
-                );
+
+        $this->available_fields = array(
+            'no' => array('label' => $this->l('Ignore this column')),
+            'id_product' => array('label' => $this->l('Product ID')),
+            'reference' => array('label' => $this->l('Reference #')),
+            'wholesale_price' => array('label' => $this->l('Wholesale price')),
+            'price_tin' => array('label' => $this->l('Price tax included')),
+            'quantity' => array('label' => $this->l('Quantity')),
+            'category' => array('label' => $this->l('Categories (x,y,z...)')),
+            'image' => array('label' => $this->l('Image URLs (x,y,z...)')),
+            'reduction_percent' => array('label' => $this->l('Discount percent')),
+            
+            'color' => array('label' => $this->l('Color')),
+            'material' => array('label' => $this->l('Material')),
+
+            'name' => array('label' => $this->l('Name')),
+            'bullet' => array('label' => $this->l('Bullet1 es')),
+            'bullet' => array('label' => $this->l('Bullet2 es')),
+            'bullet' => array('label' => $this->l('Bullet3 es')),
+            'tags' => array('label' => $this->l('Tags (x,y,z...)')),
+            'meta_title' => array('label' => $this->l('Meta title')),
+            'meta_description' => array('label' => $this->l('Meta description')),
+
+            // 'description_short' => array('label' => $this->l('Short description')),
+            'name' => array('label' => $this->l('Nombre inglés')),
+            'bullet' => array('label' => $this->l('Bullet1 en')),
+            'bullet' => array('label' => $this->l('Bullet2 en')),
+            'bullet' => array('label' => $this->l('Bullet3 en')),
+            'tags' => array('label' => $this->l('Tags (x,y,z...)')),
+            'meta_title' => array('label' => $this->l('Meta title en')),
+            'meta_description' => array('label' => $this->l('Meta description en')),
+
+        );
+        self::$default_values = array(
+            'id_category' => array((int)Configuration::get('PS_HOME_CATEGORY')),
+            'id_category_default' => null,
+            'active' => '1',
+            'width' => 0.000000,
+            'height' => 0.000000,
+            'depth' => 0.000000,
+            'weight' => 0.000000,
+            'visibility' => 'both',
+            'additional_shipping_cost' => 0.00,
+            'unit_price' => 0,
+            'quantity' => 0,
+            'minimal_quantity' => 1,
+            'price' => 0,
+            'id_tax_rules_group' => 0,
+            'description_short' => array((int)Configuration::get('PS_LANG_DEFAULT') => ''),
+            'link_rewrite' => array((int)Configuration::get('PS_LANG_DEFAULT') => ''),
+            'online_only' => 0,
+            'condition' => 'new',
+            'available_date' => date('Y-m-d'),
+            'date_add' => date('Y-m-d H:i:s'),
+            'date_upd' => date('Y-m-d H:i:s'),
+            'customizable' => 0,
+            'uploadable_files' => 0,
+            'text_fields' => 0,
+            'advanced_stock_management' => 0,
+            'depends_on_stock' => 0,
+        );
 	}
+
+    protected static function getPrice($field)
+    {
+        $field = ((float)str_replace(',', '.', $field));
+        $field = ((float)str_replace('%', '', $field));
+        return $field;
+    }
 
 	public function renderList()
 	{
@@ -522,6 +542,18 @@ class AdminBilyferProductImportController extends ModuleAdminController
         self::$column_mask['meta_description'] = 21;
 
     }
+    
+    public function clearSmartyCache()
+    {
+        Tools::enableCache();
+        Tools::clearCache($this->context->smarty);
+        Tools::restoreCacheSettings();
+    }
+
+    protected function closeCsvFile($handle)
+    {
+        fclose($handle);
+    }
 
     protected static function rewindBomAware($handle)
     {
@@ -583,6 +615,12 @@ class AdminBilyferProductImportController extends ModuleAdminController
 */
 
             for ($i = 0; $i < $common_attr_size; $i++){
+                $type = $column_keys[$i];
+                $nb = self::$column_mask[$type];
+                $res[$type] = isset($row[$nb]) ? $row[$nb] : null;
+            }
+
+            for ($i = $common_attr_size + $lang_offset ; $i < $common_attr_size + $lang_size; $i++){
                 $type = $column_keys[$i];
                 $nb = self::$column_mask[$type];
                 $res[$type] = isset($row[$nb]) ? $row[$nb] : null;
@@ -665,11 +703,17 @@ class AdminBilyferProductImportController extends ModuleAdminController
         $shop_is_feature_active = Shop::isFeatureActive();
         Module::setBatchMode(true);
         for ($current_line = 0; $line = fgetcsv($handle, MAX_LINE_SIZE, $this->separator); $current_line++) {
+
+            // we ignore the header line
+            if ($current_line == 0) {
+                continue;
+            }
+
             if ($convert) {
                 $line = $this->utf8EncodeArray($line);
             }
 
-
+            global $iso_lang;
 
             foreach ($lang_arr as $iso_lang => $id_lang) {
 
@@ -1232,18 +1276,21 @@ class AdminBilyferProductImportController extends ModuleAdminController
         Tag::updateTagCount();
     }
    
-    protected static function fillInfo($infos, $key, &$entity)
+    public static function fillInfo($infos, $key, &$entity)
     {
         $infos = trim($infos);
-        $bullet = false;
-        
-        if ($infos == 'name') {
+        //$bullet = false;
+     /*   
+        if ($key == 'name') {
             $breakpoint = "";
             echo "borrar";
         }
+*/
 
-        if (isset(self::$validators[$key][1]) && self::$validators[$key][1] == 'createMultiLangField' && Tools::getValue('iso_lang')) {
-            $id_lang = Language::getIdByIso(Tools::getValue('iso_lang'));
+        global $iso_lang;
+
+        if (isset(self::$validators[$key][1]) && self::$validators[$key][1] == 'createMultiLangField' && !empty($iso_lang)) {
+            $id_lang = Language::getIdByIso($iso_lang);
             $tmp = call_user_func(self::$validators[$key], $infos);
             foreach ($tmp as $id_lang_tmp => $value) {
                 /*
@@ -1258,12 +1305,20 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 */
                 if (empty($entity->{$key}[$id_lang_tmp]) || $id_lang_tmp == $id_lang) {
                     if(strpos(strtolower($key), 'bullet') !== false) { // es bullet
-                        $bullet = true;
-                        $entity->{"description"}[$id_lang_tmp] = "<ul><li class='bullet'>$value</li>";
+                        if (empty($entity->{"description"}[$id_lang_tmp])) {
+                            $entity->{"description"}[$id_lang_tmp] = "<ul><li class='bullet'>$value</li>";
+                        }
+                        else {
+                            $entity->{"description"}[$id_lang_tmp] = "<li class='bullet'>$value</li>";
+                        }
+                        if (strtolower($key) == 'bullet3') {
+                            $entity->{"description"}[$key] .= "</ul>";
+                        }
                     }
                     else {
                         $entity->{$key}[$id_lang_tmp] = $value;
                     }
+                    
                 }
                 else {
                     if(strpos(strtolower($key), 'bullet') !== false) { // es bullet
@@ -1271,11 +1326,13 @@ class AdminBilyferProductImportController extends ModuleAdminController
                     }
                 }
             }
+            /*
             if ($bullet == true) {
                 foreach ($entity->{"description"} as $key => $description) {
                     $entity->{"description"}[$key] .= "</ul>";
                 }
             }
+            */
         } elseif (!empty($infos) || $infos == '0') { // ($infos == '0') => if you want to disable a product by using "0" in active because empty('0') return true
                 $entity->{$key} = isset(self::$validators[$key]) ? call_user_func(self::$validators[$key], $infos) : $infos;
         }
