@@ -49,18 +49,18 @@ class AdminBilyferProductImportController extends ModuleAdminController
             ),
             'es' => array (
                 'name' => 0,
-                'bullet' => 1,
-                'bullet' => 2,
-                'bullet' => 3,
+                'bullet1' => 1,
+                'bullet2' => 2,
+                'bullet3' => 3,
                 'tags' => 4,
                 'meta_title' => 5,
                 'meta_description' => 6,
             ),
             'en' => array (
                 'name' => 0,
-                'bullet' => 1,
-                'bullet' => 2,
-                'bullet' => 3,
+                'bullet1' => 1,
+                'bullet2' => 2,
+                'bullet3' => 3,
                 'tags' => 4,
                 'meta_title' => 5,
                 'meta_description' => 6,
@@ -504,7 +504,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
     
     
     
-    protected function receiveTab()
+    protected function receiveTab($iso_lang)
     {
         /*
         $type_value = Tools::getValue('type_value') ? Tools::getValue('type_value') : array();
@@ -514,7 +514,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
             }
         }
         */
-        self::$column_mask['id_product'] = 0;
+        self::$column_mask['id'] = 0;
         self::$column_mask['reference'] = 1;
         self::$column_mask['wholesale_price'] = 2;
         self::$column_mask['price_tin'] = 3;
@@ -522,25 +522,31 @@ class AdminBilyferProductImportController extends ModuleAdminController
         self::$column_mask['category'] = 5;
         self::$column_mask['image'] = 6;
         self::$column_mask['reduction_percent'] = 7;
-        self::$column_mask['name'] = 8;
-        self::$column_mask['bullet1'] = 9;
-        self::$column_mask['bullet2'] = 10;
-        self::$column_mask['bullet3'] = 11;
-        
-        self::$column_mask['tags'] = 12;
-        self::$column_mask['meta_title'] = 13;
-        self::$column_mask['meta_description'] = 14;
-        // self::$column_mask['description_short'] = 14;
 
-        self::$column_mask['name'] = 15;
-        self::$column_mask['bullet1'] = 16;
-        self::$column_mask['bullet2'] = 17;
-        self::$column_mask['bullet3'] = 18;
-        
-        self::$column_mask['tags'] = 19;
-        self::$column_mask['meta_title'] = 20;
-        self::$column_mask['meta_description'] = 21;
+        self::$column_mask['color'] = 8;
+        self::$column_mask['material'] = 9;
 
+        if (strtolower($iso_lang) == 'es') {
+            self::$column_mask['name'] = 10;
+            self::$column_mask['bullet1'] = 11;
+            self::$column_mask['bullet2'] = 12;
+            self::$column_mask['bullet3'] = 13;
+            
+            self::$column_mask['tags'] = 14;
+            self::$column_mask['meta_title'] = 15;
+            self::$column_mask['meta_description'] = 16;
+            // self::$column_mask['description_short'] = 14;
+        }
+        else if (strtolower($iso_lang) == 'en') {
+            self::$column_mask['name'] = 10;
+            self::$column_mask['bullet1'] = 11;
+            self::$column_mask['bullet2'] = 12;
+            self::$column_mask['bullet3'] = 13;
+            
+            self::$column_mask['tags'] = 14;
+            self::$column_mask['meta_title'] = 15;
+            self::$column_mask['meta_description'] = 16;
+        }
     }
     
     public function clearSmartyCache()
@@ -602,6 +608,8 @@ class AdminBilyferProductImportController extends ModuleAdminController
 
         $lang_size = self::getLanguagedAttibuteSize($iso_lang);
 
+        $combination_attr_size = self::getCombinationAttributeLength();
+
         $res = array();
 
         if (is_array(self::$column_mask)) {
@@ -620,7 +628,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 $res[$type] = isset($row[$nb]) ? $row[$nb] : null;
             }
 
-            for ($i = $common_attr_size + $lang_offset ; $i < $common_attr_size + $lang_size; $i++){
+            for ($i = $common_attr_size + $lang_offset + $combination_attr_size; $i < $common_attr_size + $lang_size + $combination_attr_size; $i++){
                 $type = $column_keys[$i];
                 $nb = self::$column_mask[$type];
                 $res[$type] = isset($row[$nb]) ? $row[$nb] : null;
@@ -680,9 +688,6 @@ class AdminBilyferProductImportController extends ModuleAdminController
         }
 
 
-
-        $this->receiveTab();
-
         // Tools::fileAttachment('bilyferfile')
         $handle = $this->openCsvFile();
 
@@ -713,13 +718,17 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 $line = $this->utf8EncodeArray($line);
             }
 
+            $combinations = $this -> getCombinationAttributes($line);
+
             global $iso_lang;
 
             foreach ($lang_arr as $iso_lang => $id_lang) {
 
+                $this->receiveTab($iso_lang);
+
                 $info = self::getMaskedRow($line, $iso_lang);
 
-                $combinations = $this -> getCombinationAttributes($line, $iso_lang);
+                
                 
                 //$this -> removeCombinationAttributes($info, $iso_lang);
                 
@@ -1279,17 +1288,14 @@ class AdminBilyferProductImportController extends ModuleAdminController
     public static function fillInfo($infos, $key, &$entity)
     {
         $infos = trim($infos);
-        //$bullet = false;
-     /*   
-        if ($key == 'name') {
-            $breakpoint = "";
-            echo "borrar";
-        }
-*/
+
 
         global $iso_lang;
 
         if (isset(self::$validators[$key][1]) && self::$validators[$key][1] == 'createMultiLangField' && !empty($iso_lang)) {
+            if (strtolower($key) == 'description' ) {
+                return;
+            }
             $id_lang = Language::getIdByIso($iso_lang);
             $tmp = call_user_func(self::$validators[$key], $infos);
             foreach ($tmp as $id_lang_tmp => $value) {
@@ -1305,14 +1311,14 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 */
                 if (empty($entity->{$key}[$id_lang_tmp]) || $id_lang_tmp == $id_lang) {
                     if(strpos(strtolower($key), 'bullet') !== false) { // es bullet
-                        if (empty($entity->{"description"}[$id_lang_tmp])) {
+                        if (strtolower($key) == 'bullet1') {
                             $entity->{"description"}[$id_lang_tmp] = "<ul><li class='bullet'>$value</li>";
                         }
                         else {
-                            $entity->{"description"}[$id_lang_tmp] = "<li class='bullet'>$value</li>";
+                            $entity->{"description"}[$id_lang_tmp] .= "<li class='bullet'>$value</li>";
                         }
                         if (strtolower($key) == 'bullet3') {
-                            $entity->{"description"}[$key] .= "</ul>";
+                            $entity->{"description"}[$id_lang_tmp] .= "</ul>";
                         }
                     }
                     else {
@@ -1326,13 +1332,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                     }
                 }
             }
-            /*
-            if ($bullet == true) {
-                foreach ($entity->{"description"} as $key => $description) {
-                    $entity->{"description"}[$key] .= "</ul>";
-                }
-            }
-            */
+            
         } elseif (!empty($infos) || $infos == '0') { // ($infos == '0') => if you want to disable a product by using "0" in active because empty('0') return true
                 $entity->{$key} = isset(self::$validators[$key]) ? call_user_func(self::$validators[$key], $infos) : $infos;
         }
