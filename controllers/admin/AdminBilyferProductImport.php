@@ -436,7 +436,14 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 $path = _PS_SUPP_IMG_DIR_.(int)$id_entity;
             break;
         }
-        $url = urldecode(trim($url));
+
+        // option 1 to test with ivan (this is a file path):
+        $url = urldecode(trim(_PS_IMG_DIR_.'imagenes/'.$url));
+
+        // option 2 to test with ivan (this is an url):
+        $url = urldecode(trim(_PS_IMG_.'imagenes/'.$url));
+
+
         $parced_url = parse_url($url);
         if (isset($parced_url['path'])) {
             $uri = ltrim($parced_url['path'], '/');
@@ -633,6 +640,9 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 $nb = self::$column_mask[$type];
                 $res[$type] = isset($row[$nb]) ? $row[$nb] : null;
             }
+
+            $res['description_short'] = $res['name'];
+            $res['id_tax_rules_group'] = 1;
 
         }
 
@@ -964,8 +974,12 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 $productExistsInDatabase = false;
                 if ($product->id && Product::existsInDatabase((int)$product->id, 'product')) {
                     $productExistsInDatabase = true;
+                    $match_ref = false;
                 }
-                if ((/*$match_ref && */$product->reference && $product->existsRefInDatabase($product->reference)) || $productExistsInDatabase) {
+                else {
+                    $match_ref = true;
+                }
+                if (($match_ref && $product->reference && $product->existsRefInDatabase($product->reference)) || $productExistsInDatabase) {
                     $product->date_upd = date('Y-m-d H:i:s');
                 }
                 $res = false;
@@ -975,7 +989,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                     if ($product->quantity == null) {
                         $product->quantity = 0;
                     }
-                    if (/*$match_ref && */$product->reference && $product->existsRefInDatabase($product->reference)) {
+                    if ($match_ref && $product->reference && $product->existsRefInDatabase($product->reference)) {
                         $datas = Db::getInstance()->getRow('
                             SELECT product_shop.`date_add`, p.`id_product`
                             FROM `'._DB_PREFIX_.'product` p
