@@ -56,7 +56,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 'meta_title' => 5,
                 'meta_description' => 6,
             ),
-            'en' => array (
+            'gb' => array (
                 'name' => 0,
                 'bullet1' => 1,
                 'bullet2' => 2,
@@ -67,7 +67,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
             ),
             'lang' => array (
                 'es' => 0,
-                'en' => 1
+                'gb' => 1
             )
         );
     }
@@ -160,7 +160,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
     
     private function removeOtherLanguageInfo(&$line, $iso_lang) {
         if (strtolower($iso_lang) == 'es' ) {
-            $remove_lang_iso = 'en';
+            $remove_lang_iso = 'gb';
         }
         else {
             $remove_lang_iso = 'es';
@@ -441,7 +441,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
         $url = urldecode(trim(_PS_IMG_DIR_.'imagenes/'.$url));
 
         // option 2 to test with ivan (this is an url):
-        $url = urldecode(trim(_PS_IMG_.'imagenes/'.$url));
+        // $url = urldecode(trim(_PS_IMG_.'imagenes/'.$url));
 
 
         $parced_url = parse_url($url);
@@ -509,7 +509,18 @@ class AdminBilyferProductImportController extends ModuleAdminController
         return true;
     }
     
-    
+    private static function get_best_path($tgt_width, $tgt_height, $path_infos)
+    {
+        $path_infos = array_reverse($path_infos);
+        $path = '';
+        foreach ($path_infos as $path_info) {
+            list($width, $height, $path) = $path_info;
+            if ($width >= $tgt_width && $height >= $tgt_height) {
+                return $path;
+            }
+        }
+        return $path;
+    }
     
     protected function receiveTab($iso_lang)
     {
@@ -544,7 +555,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
             self::$column_mask['meta_description'] = 16;
             // self::$column_mask['description_short'] = 14;
         }
-        else if (strtolower($iso_lang) == 'en') {
+        else if (strtolower($iso_lang) == 'gb') {
             self::$column_mask['name'] = 10;
             self::$column_mask['bullet1'] = 11;
             self::$column_mask['bullet2'] = 12;
@@ -635,14 +646,14 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 $res[$type] = isset($row[$nb]) ? $row[$nb] : null;
             }
 
-            for ($i = $common_attr_size + $lang_offset + $combination_attr_size; $i < $common_attr_size + $lang_size + $combination_attr_size; $i++){
+            for ($i = $common_attr_size  + $combination_attr_size; $i < $common_attr_size  + $combination_attr_size + $lang_size; $i++){
                 $type = $column_keys[$i];
-                $nb = self::$column_mask[$type];
+                $nb = self::$column_mask[$type] + ($lang_offset*$lang_size);
                 $res[$type] = isset($row[$nb]) ? $row[$nb] : null;
             }
 
             $res['description_short'] = $res['name'];
-            $res['id_tax_rules_group'] = 1;
+            $res['id_tax_rules_group'] = 4;
 
         }
 
@@ -683,9 +694,13 @@ class AdminBilyferProductImportController extends ModuleAdminController
     protected static function createMultiLangField($field)
     {
         $res = array();
-        foreach (Language::getIDs(false) as $id_lang) {
+
+        global $iso_lang;
+        $id_lang = Language::getIdByIso($iso_lang);
+        
+        //foreach (Language::getIDs(false) as $id_lang) {
             $res[$id_lang] = $field;
-        }
+        //}
 
         return $res;
     }
@@ -705,7 +720,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
 
         $lang_arr = array (
             'es' => Language::getIdByIso('es'),
-            'en' => Language::getIdByIso('en')
+            'gb' => Language::getIdByIso('gb')
         );
         
 
@@ -972,9 +987,12 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 }
                 $product->indexed = 0;
                 $productExistsInDatabase = false;
-                if ($product->id && Product::existsInDatabase((int)$product->id, 'product')) {
-                    $productExistsInDatabase = true;
+                if ($product->id /*&& Product::existsInDatabase((int)$product->id, 'product')*/) {
+                    if (Product::existsInDatabase((int)$product->id, 'product')) {
+                        $productExistsInDatabase = true;
+                    }
                     $match_ref = false;
+                    $force_ids = true;
                 }
                 else {
                     $match_ref = true;
@@ -1319,7 +1337,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 if ((strtolower($lang_iso) == 'es') && (($key == "bullet1es") || ($key == "bullet2es") || ($key == "bullet3es")) ) {
                     $descriptiones .= "<li class='bullet'>$value</li>";
                 }
-                else if ((strtolower($lang_iso) == 'en') && (($key == "bullet1en") || ($key == "bullet2en") || ($key == "bullet3en")) ) {
+                else if ((strtolower($lang_iso) == 'gb') && (($key == "bullet1en") || ($key == "bullet2en") || ($key == "bullet3en")) ) {
                     $descriptionen .= "<li class='bullet'>$value</li>";
                 }
                 */
