@@ -65,9 +65,19 @@ class AdminBilyferProductImportController extends ModuleAdminController
                 'meta_title' => 5,
                 'meta_description' => 6,
             ),
+            'en' => array (
+                'name' => 0,
+                'bullet1' => 1,
+                'bullet2' => 2,
+                'bullet3' => 3,
+                'tags' => 4,
+                'meta_title' => 5,
+                'meta_description' => 6,
+            ),
             'lang' => array (
                 'es' => 0,
-                'gb' => 1
+                'gb' => 1,
+                'en' => 1
             )
         );
     }
@@ -555,7 +565,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
             self::$column_mask['meta_description'] = 16;
             // self::$column_mask['description_short'] = 14;
         }
-        else if (strtolower($iso_lang) == 'gb') {
+        else if ((strtolower($iso_lang) == 'gb') || (strtolower($iso_lang) == 'en')) {
             self::$column_mask['name'] = 10;
             self::$column_mask['bullet1'] = 11;
             self::$column_mask['bullet2'] = 12;
@@ -718,11 +728,18 @@ class AdminBilyferProductImportController extends ModuleAdminController
 
         $default_language_id = (int)Configuration::get('PS_LANG_DEFAULT');
 
+        $gb_iso_id = !empty(Language::getIdByIso('gb'))?Language::getIdByIso('gb'):false;
+        $en_iso_id = !empty(Language::getIdByIso('gb'))?Language::getIdByIso('gb'):false;
+
         $lang_arr = array (
-            'es' => Language::getIdByIso('es'),
-            'gb' => Language::getIdByIso('gb')
+            'es' => Language::getIdByIso('es')
         );
-        
+        if (!empty($gb_iso_id)) {
+            $lang_arr['gb'] = $gb_iso_id;
+        }
+        if (!empty($en_iso_id)) {
+            $lang_arr['en'] = $en_iso_id;
+        }
 
         AdminImportController::setLocale();
         $shop_ids = Shop::getCompleteListOfShopsID();
@@ -746,6 +763,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
             $combinations = $this -> getCombinationAttributes($line);
 
             global $iso_lang;
+            $images_were_uploaded = false;
 
             foreach ($lang_arr as $iso_lang => $id_lang) {
 
@@ -1185,9 +1203,12 @@ class AdminBilyferProductImportController extends ModuleAdminController
                                 if (($field_error = $image->validateFields(UNFRIENDLY_ERROR, true)) === true &&
                                     ($lang_field_error = $image->validateFieldsLang(UNFRIENDLY_ERROR, true)) === true && $image->add()) {
                                     $image->associateTo($shops);
-                                    if (!self::copyImg($product->id, $image->id, $url, 'products', !$regenerate)) {
+                                    if (!$images_were_uploaded && !self::copyImg($product->id, $image->id, $url, 'products', !$regenerate)) {
                                         $image->delete();
                                         $this->warnings[] = sprintf(Tools::displayError('Error copying image: %s'), $url);
+                                    }
+                                    else {
+                                        $images_were_uploaded = true;
                                     }
                                 } else {
                                     $error = true;
