@@ -29,19 +29,23 @@
  */
 class AdminBilyferProductImportController extends ModuleAdminController
 {
-
+    protected function addProductWarning($product_name, $product_id = null, $message = '')
+    {
+        $this->warnings[] = $product_name.(isset($product_id) ? ' (ID '.$product_id.')' : '').' '
+            .Tools::displayError($message);
+    }
 
     private static function csvOffsets(){
         return array(
             'commonAttributes' => array(
                 'id_product' => 0,
                 'reference' => 1,
-                'wholesale_price' => 2,
-                'price_tin' => 3,
-                'quantity' => 4,
-                'category' => 5,
-                'image' => 6,
-                'reduction_percent' => 7,
+                // 'wholesale_price' => 2,
+                'price_tin' => 2,
+                'quantity' => 3,
+                'category' => 4,
+                'image' => 5,
+                'reduction_percent' => 6,
             ),
             'combinationAttr' => array(
                 'color' => 0,
@@ -294,6 +298,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
             'quantity' => 0,
             'minimal_quantity' => 1,
             'price' => 0,
+            'wholesale_price' => 0,
             'id_tax_rules_group' => 0,
             'description_short' => array((int)Configuration::get('PS_LANG_DEFAULT') => ''),
             'link_rewrite' => array((int)Configuration::get('PS_LANG_DEFAULT') => ''),
@@ -544,36 +549,36 @@ class AdminBilyferProductImportController extends ModuleAdminController
         */
         self::$column_mask['id'] = 0;
         self::$column_mask['reference'] = 1;
-        self::$column_mask['wholesale_price'] = 2;
-        self::$column_mask['price_tin'] = 3;
-        self::$column_mask['quantity'] = 4;
-        self::$column_mask['category'] = 5;
-        self::$column_mask['image'] = 6;
-        self::$column_mask['reduction_percent'] = 7;
+        //self::$column_mask['wholesale_price'] = 2;
+        self::$column_mask['price_tin'] = 2;
+        self::$column_mask['quantity'] = 3;
+        self::$column_mask['category'] = 4;
+        self::$column_mask['image'] = 5;
+        self::$column_mask['reduction_percent'] = 6;
 
-        self::$column_mask['color'] = 8;
-        self::$column_mask['material'] = 9;
+        self::$column_mask['color'] = 7;
+        self::$column_mask['material'] = 8;
 
         if (strtolower($iso_lang) == 'es') {
-            self::$column_mask['name'] = 10;
-            self::$column_mask['bullet1'] = 11;
-            self::$column_mask['bullet2'] = 12;
-            self::$column_mask['bullet3'] = 13;
+            self::$column_mask['name'] = 9;
+            self::$column_mask['bullet1'] = 10;
+            self::$column_mask['bullet2'] = 11;
+            self::$column_mask['bullet3'] = 12;
             
-            self::$column_mask['tags'] = 14;
-            self::$column_mask['meta_title'] = 15;
-            self::$column_mask['meta_description'] = 16;
+            self::$column_mask['tags'] = 13;
+            self::$column_mask['meta_title'] = 14;
+            self::$column_mask['meta_description'] = 15;
             // self::$column_mask['description_short'] = 14;
         }
         else if ((strtolower($iso_lang) == 'gb') || (strtolower($iso_lang) == 'en')) {
-            self::$column_mask['name'] = 10;
-            self::$column_mask['bullet1'] = 11;
-            self::$column_mask['bullet2'] = 12;
-            self::$column_mask['bullet3'] = 13;
+            self::$column_mask['name'] = 9;
+            self::$column_mask['bullet1'] = 10;
+            self::$column_mask['bullet2'] = 11;
+            self::$column_mask['bullet3'] = 12;
             
-            self::$column_mask['tags'] = 14;
-            self::$column_mask['meta_title'] = 15;
-            self::$column_mask['meta_description'] = 16;
+            self::$column_mask['tags'] = 13;
+            self::$column_mask['meta_title'] = 14;
+            self::$column_mask['meta_description'] = 15;
         }
     }
     
@@ -976,6 +981,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                         $link_rewrite = 'friendly-url-autogeneration-failed';
                     }
                 }
+                /*
                 if (!$valid_link) {
                     $this->warnings[] = sprintf(
                         Tools::displayError('Rewrite link for %1$s (ID: %2$s) was re-written as %3$s.'),
@@ -984,6 +990,7 @@ class AdminBilyferProductImportController extends ModuleAdminController
                         $link_rewrite
                     );
                 }
+                */
                 if (!(is_array($product->link_rewrite) && count($product->link_rewrite))) {
                     $product->link_rewrite = self::createMultiLangField($link_rewrite);
                 } else {
