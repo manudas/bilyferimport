@@ -2,7 +2,7 @@
 <module>
 	<name>bilyferimport</name>
 	<displayName><![CDATA[Modulo de importaci&oacute;n CSV para Bylifer]]></displayName>
-	<version><![CDATA[0.1]]></version>
+	<version><![CDATA[0.7]]></version>
 	<description><![CDATA[M&oacute;dulo para importar los archivos extra&iacute;dos de EXCEL con productos a la tienda Bilyfer]]></description>
 	<author><![CDATA[Manuel Jos&eacute; Pulgar Anguita]]></author>
 	<tab><![CDATA[front_office_features]]></tab>

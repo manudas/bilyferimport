@@ -124,13 +124,37 @@ class AdminBilyferProductImportController extends ModuleAdminController
     
     private function getCombinationAttributes($line) {
         $common_lenght_att = $this -> getCommonLengthAttr();
-
+/*
         $result = array(
             0 => array( 'group'     => 'color',
                         'attribute' => $line[$common_lenght_att + $this -> getAttrOffset('color')]),
             2 => array( 'group'     => 'material',  
                         'attribute' => $line[$common_lenght_att + $this -> getAttrOffset('material')])
         );
+*/
+        $result = array();
+
+        $has_color = !empty($line[$common_lenght_att + $this -> getAttrOffset('color')]);
+        $has_material = !empty($line[$common_lenght_att + $this -> getAttrOffset('material')]);
+
+        if ($has_color && $has_material) {
+            // $breakpoint = "";
+            $result[] = array(
+                'group'     => 'color, material',
+                'attribute' => ($line[$common_lenght_att + $this -> getAttrOffset('color')].','.$line[$common_lenght_att + $this -> getAttrOffset('material')]),
+                'reference' => 'c:'.$line[$common_lenght_att + $this -> getAttrOffset('color')].';m:'.$line[$common_lenght_att + $this -> getAttrOffset('material')]
+            );
+        }
+        else {
+            $result = array(
+                0 => array( 'group'     => 'color',
+                    'attribute' => $line[$common_lenght_att + $this -> getAttrOffset('color')]),
+                2 => array( 'group'     => 'material',
+                    'attribute' => $line[$common_lenght_att + $this -> getAttrOffset('material')])
+            );
+        }
+
+
         return $result;
     }
 
@@ -1335,6 +1359,17 @@ class AdminBilyferProductImportController extends ModuleAdminController
                     }
                 }
                 foreach ($combinations as $combination) {
+                    $combination['id_product'] = $product -> id;
+                    /*
+                    if (!empty($combination['reference'])) {
+                        $combination['reference'] .= '_'.$combination['id_product'];
+                    }
+                    else {
+                        $combination['reference'] = $combination['group'][0] . ':' . $combination['attribute'][0] . '_' . $combination['id_product'];
+                    }
+                    */
+                    $combination['reference'] = $product -> reference;
+                    $combination['quantity'] = $product -> quantity;
                     $result = $this -> bilyferAttributeImport($combination, null);
                 }
             }

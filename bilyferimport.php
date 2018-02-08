@@ -6,7 +6,7 @@ class bilyferimport extends Module {
     {
         $this->name = 'bilyferimport';
         $this->tab = 'front_office_features';
-        $this->version = '0.1';
+        $this->version = '0.7';
         $this->author = 'Manuel José Pulgar Anguita';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = array('min' => '1.5');
