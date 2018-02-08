@@ -636,10 +636,11 @@ class AdminImportController extends AdminImportControllerCore
                     }
                 }
             }
+
 			$update_att_quantity_query = 'UPDATE `' . _DB_PREFIX_ . 'stock_available`
 			    SET `quantity` = ' . $product->quantity . ' WHERE `id_product` = ' . (int) $product->id;
 			Db::getInstance()->Execute($update_att_quantity_query);
-			// $product->updateQuantityProductWithAttributeQuantity());
+			
         }
         $this->closeCsvFile($handle);
         Module::processDeferedFuncCall();
